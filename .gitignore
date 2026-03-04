@@ -1,0 +1,7 @@
+# Speckit internal state
+.specify/.current-feature
+**/.progress.md
+**/.speckit-state.json
+
+# Claude Code local settings
+.claude/settings.local.json
