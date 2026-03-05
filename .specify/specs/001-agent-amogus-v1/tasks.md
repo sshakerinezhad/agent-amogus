@@ -110,7 +110,7 @@
 ### Implementation for User Story 3
 
 - [x] T028 [US3] Create `amogus/dashboard.py` — Rich Live dashboard using Layout with panels: AgentPanel (table showing each agent's current status/action/token usage), SprintPanel (current sprint N/M, current phase, progress bar), EventFeed (scrolling list of recent events with color-coded types), ClassifiedPanel (adversarial agent mission progress, milestone status, scratchpad excerpts — red-themed), update(event: BaseEvent) method to refresh panels from event stream, start()/stop() lifecycle methods using Rich Live context manager
-- [ ] T029 [US3] Integrate dashboard with orchestrator in `amogus/orchestrator.py` — pass dashboard instance to orchestrator, call dashboard.update() on every event append, add --no-dashboard CLI flag to disable TUI for headless/CI runs, handle terminal resize gracefully
+- [x] T029 [US3] Integrate dashboard with orchestrator in `amogus/orchestrator.py` — pass dashboard instance to orchestrator, call dashboard.update() on every event append, add --no-dashboard CLI flag to disable TUI for headless/CI runs, handle terminal resize gracefully
 
 **Checkpoint**: `amogus run --scenario ...` shows a live-updating terminal dashboard during the experiment.
 

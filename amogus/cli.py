@@ -18,6 +18,7 @@ from rich.console import Console
 from amogus.agent import Agent
 from amogus.backlog import BacklogManager
 from amogus.checkpoint import load_checkpoint
+from amogus.dashboard import Dashboard
 from amogus.event_log import EventLog
 from amogus.exceptions import BudgetExhaustedError, ConfigError, ProviderError
 from amogus.models.config import ExperimentConfig
@@ -38,10 +39,13 @@ console = Console()
 @app.command()
 def run(
     scenario: Path = typer.Option(..., help="Path to scenario YAML"),
+    no_dashboard: bool = typer.Option(
+        False, "--no-dashboard", help="Disable live dashboard (for headless/CI runs)"
+    ),
 ) -> None:
     """Run a complete multi-sprint adversarial experiment."""
     try:
-        asyncio.run(_run(scenario))
+        asyncio.run(_run(scenario, no_dashboard=no_dashboard))
     except ConfigError as exc:
         console.print(f"[bold red]Configuration error:[/bold red] {exc}")
         raise SystemExit(1)
@@ -55,7 +59,7 @@ def run(
         )
 
 
-async def _run(scenario_path: Path) -> None:
+async def _run(scenario_path: Path, *, no_dashboard: bool = False) -> None:
     """Async implementation of the run command."""
     console.print(
         "[bold green]AMOGUS[/bold green] — Loading scenario...",
@@ -102,6 +106,17 @@ async def _run(scenario_path: Path) -> None:
         )
         agents.append(agent)
 
+    # Build dashboard unless disabled
+    dashboard: Dashboard | None = None
+    if not no_dashboard:
+        # Identify adversarial agents (those with mission assignments)
+        adversarial_agents = list(config.mission_assignments.keys())
+        dashboard = Dashboard(
+            agent_configs=config.team,
+            total_sprints=config.num_sprints,
+            adversarial_agents=adversarial_agents or None,
+        )
+
     # Construct and run orchestrator
     orchestrator = Orchestrator(
         config=config,
@@ -109,6 +124,7 @@ async def _run(scenario_path: Path) -> None:
         event_log=event_log,
         backlog=backlog,
         pr_tracker=pr_tracker,
+        dashboard=dashboard,
     )
 
     console.print("\n[bold green]Starting experiment...[/bold green]\n")
@@ -126,10 +142,13 @@ async def _run(scenario_path: Path) -> None:
 @app.command()
 def resume(
     run_id: str = typer.Argument(..., help="Run ID to resume (directory name under runs/)"),
+    no_dashboard: bool = typer.Option(
+        False, "--no-dashboard", help="Disable live dashboard (for headless/CI runs)"
+    ),
 ) -> None:
     """Resume an experiment from its last checkpoint."""
     try:
-        asyncio.run(_resume(run_id))
+        asyncio.run(_resume(run_id, no_dashboard=no_dashboard))
     except ConfigError as exc:
         console.print(f"[bold red]Configuration error:[/bold red] {exc}")
         raise SystemExit(1)
@@ -146,7 +165,7 @@ def resume(
         raise SystemExit(3)
 
 
-async def _resume(run_id: str) -> None:
+async def _resume(run_id: str, *, no_dashboard: bool = False) -> None:
     """Async implementation of the resume command."""
     console.print(
         "[bold green]AMOGUS[/bold green] — Resuming experiment...",
@@ -261,6 +280,16 @@ async def _resume(run_id: str) -> None:
 
         agents.append(agent)
 
+    # Build dashboard unless disabled
+    dashboard: Dashboard | None = None
+    if not no_dashboard:
+        adversarial_agents = list(config.mission_assignments.keys())
+        dashboard = Dashboard(
+            agent_configs=config.team,
+            total_sprints=config.num_sprints,
+            adversarial_agents=adversarial_agents or None,
+        )
+
     # Construct orchestrator and resume from next sprint
     orchestrator = Orchestrator(
         config=config,
@@ -268,6 +297,7 @@ async def _resume(run_id: str) -> None:
         event_log=event_log,
         backlog=backlog,
         pr_tracker=pr_tracker,
+        dashboard=dashboard,
     )
 
     # Set the sprints_completed counter so checkpoint state is consistent

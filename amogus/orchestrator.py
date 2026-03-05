@@ -20,11 +20,13 @@ from git import Repo
 from amogus.agent import Agent, AgentResult
 from amogus.backlog import BacklogManager
 from amogus.checkpoint import capture_state, save_checkpoint
+from amogus.dashboard import Dashboard
 from amogus.event_log import EventLog
 from amogus.exceptions import BudgetExhaustedError
 from amogus.memory import build_initial_scratchpad
 from amogus.models.config import ExperimentConfig
 from amogus.models.events import (
+    BaseEvent,
     ExperimentEndEvent,
     ExperimentStartEvent,
     MeetingStatementEvent,
@@ -55,6 +57,9 @@ class Orchestrator:
         BacklogManager initialised from the experiment's backlog config.
     pr_tracker:
         Shared PullRequestTracker for local PR management.
+    dashboard:
+        Optional Rich TUI dashboard.  When provided, every emitted event
+        is forwarded to ``dashboard.update()`` for live display.
     """
 
     def __init__(
@@ -64,12 +69,14 @@ class Orchestrator:
         event_log: EventLog,
         backlog: BacklogManager,
         pr_tracker: PullRequestTracker,
+        dashboard: Dashboard | None = None,
     ) -> None:
         self.config = config
         self.agents = agents
         self.event_log = event_log
         self.backlog = backlog
         self.pr_tracker = pr_tracker
+        self.dashboard = dashboard
 
         # Derive run_dir from config — must be set before run()
         self.run_dir: Path = config.run_dir or Path("runs") / config.run_id
@@ -77,6 +84,16 @@ class Orchestrator:
         # Set after setup_workspace
         self._repo: Repo | None = None
         self._sprints_completed: int = 0
+
+    # ------------------------------------------------------------------
+    # Event emission helper
+    # ------------------------------------------------------------------
+
+    async def _emit(self, event: BaseEvent) -> None:
+        """Append *event* to the log and forward to the dashboard (if active)."""
+        await self.event_log.append(event)
+        if self.dashboard is not None:
+            self.dashboard.update(event)
 
     # ------------------------------------------------------------------
     # Main entry point
@@ -92,11 +109,15 @@ class Orchestrator:
             checkpoint, pass ``checkpoint.completed_sprint + 1`` to skip
             already-completed sprints.
         """
+        # Start the live dashboard if one was provided
+        if self.dashboard is not None:
+            self.dashboard.start()
+
         try:
             if start_sprint == 0:
                 await self.setup_workspace()
 
-                await self.event_log.append(
+                await self._emit(
                     ExperimentStartEvent(
                         sprint=0,
                         phase="setup",
@@ -108,7 +129,7 @@ class Orchestrator:
                 await self.sprint(sprint_num)
                 self._sprints_completed = sprint_num + 1
 
-            await self.event_log.append(
+            await self._emit(
                 ExperimentEndEvent(
                     sprint=self._sprints_completed - 1,
                     phase="teardown",
@@ -119,7 +140,7 @@ class Orchestrator:
 
         except BudgetExhaustedError as exc:
             logger.warning("Budget exhausted: %s", exc)
-            await self.event_log.append(
+            await self._emit(
                 ExperimentEndEvent(
                     sprint=max(0, self._sprints_completed),
                     phase="teardown",
@@ -127,6 +148,11 @@ class Orchestrator:
                     total_sprints_completed=self._sprints_completed,
                 )
             )
+
+        finally:
+            # Always stop the dashboard, even on exceptions
+            if self.dashboard is not None:
+                self.dashboard.stop()
 
     # ------------------------------------------------------------------
     # Workspace setup
@@ -169,7 +195,7 @@ class Orchestrator:
 
     async def sprint(self, n: int) -> None:
         """Execute a single sprint: planning -> work -> review -> retro."""
-        await self.event_log.append(
+        await self._emit(
             SprintStartEvent(
                 sprint=n,
                 phase="setup",
@@ -191,7 +217,7 @@ class Orchestrator:
         except Exception as exc:
             logger.warning("Checkpoint save failed for sprint %d: %s", n, exc)
 
-        await self.event_log.append(
+        await self._emit(
             SprintEndEvent(
                 sprint=n,
                 phase="teardown",
@@ -210,7 +236,7 @@ class Orchestrator:
         Each agent speaks in turn for ``config.pacing.planning_rounds`` rounds.
         A running transcript is maintained so later speakers see earlier statements.
         """
-        await self.event_log.append(
+        await self._emit(
             PhaseStartEvent(sprint=sprint, phase="planning")
         )
 
@@ -237,7 +263,7 @@ class Orchestrator:
 
                 transcript_lines.append(f"**{agent.config.name}**: {statement}")
 
-                await self.event_log.append(
+                await self._emit(
                     MeetingStatementEvent(
                         sprint=sprint,
                         phase="planning",
@@ -247,7 +273,7 @@ class Orchestrator:
                     )
                 )
 
-        await self.event_log.append(
+        await self._emit(
             PhaseEndEvent(sprint=sprint, phase="planning")
         )
 
@@ -256,7 +282,7 @@ class Orchestrator:
 
         Each agent gets a ToolContext and runs ``safe_agent_turn`` concurrently.
         """
-        await self.event_log.append(
+        await self._emit(
             PhaseStartEvent(sprint=sprint, phase="work")
         )
 
@@ -300,13 +326,13 @@ class Orchestrator:
 
                 tg.create_task(_run_agent(agent, prompt, tool_context))
 
-        await self.event_log.append(
+        await self._emit(
             PhaseEndEvent(sprint=sprint, phase="work")
         )
 
     async def review_phase(self, sprint: int) -> None:
         """Collect open PRs, assign reviewers, and merge approved ones."""
-        await self.event_log.append(
+        await self._emit(
             PhaseStartEvent(sprint=sprint, phase="review")
         )
 
@@ -368,7 +394,7 @@ class Orchestrator:
                     merge_sha = await self.pr_tracker.merge_pr(
                         pr.id, self._repo
                     )
-                    await self.event_log.append(
+                    await self._emit(
                         PRMergeEvent(
                             sprint=sprint,
                             phase="review",
@@ -381,7 +407,7 @@ class Orchestrator:
                         "Failed to merge %s: %s", pr.id, exc
                     )
 
-        await self.event_log.append(
+        await self._emit(
             PhaseEndEvent(sprint=sprint, phase="review")
         )
 
@@ -390,7 +416,7 @@ class Orchestrator:
 
         Each agent speaks in turn for ``config.pacing.retro_rounds`` rounds.
         """
-        await self.event_log.append(
+        await self._emit(
             PhaseStartEvent(sprint=sprint, phase="retro")
         )
 
@@ -418,7 +444,7 @@ class Orchestrator:
 
                 transcript_lines.append(f"**{agent.config.name}**: {statement}")
 
-                await self.event_log.append(
+                await self._emit(
                     MeetingStatementEvent(
                         sprint=sprint,
                         phase="retro",
@@ -428,6 +454,6 @@ class Orchestrator:
                     )
                 )
 
-        await self.event_log.append(
+        await self._emit(
             PhaseEndEvent(sprint=sprint, phase="retro")
         )
