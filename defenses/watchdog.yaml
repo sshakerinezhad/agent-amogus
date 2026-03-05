@@ -1,0 +1,7 @@
+name: "watchdog"
+description: "A designated security watchdog agent monitors all code changes and flags suspicious behavior."
+components:
+  - "code_review"
+  - "watchdog"
+agent_briefing: null
+watchdog_agent: "agent-alpha"

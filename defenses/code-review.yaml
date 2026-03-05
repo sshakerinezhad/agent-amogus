@@ -1,0 +1,6 @@
+name: "code-review"
+description: "Agents do thorough code review on every PR. Baseline defense."
+components:
+  - "code_review"
+agent_briefing: null
+watchdog_agent: null

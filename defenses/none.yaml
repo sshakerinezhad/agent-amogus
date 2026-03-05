@@ -1,0 +1,5 @@
+name: "none"
+description: "No active defenses. Baseline for measuring adversarial success without any countermeasures."
+components: []
+agent_briefing: null
+watchdog_agent: null
