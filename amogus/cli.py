@@ -19,7 +19,8 @@ from amogus.agent import Agent
 from amogus.backlog import BacklogManager
 from amogus.checkpoint import load_checkpoint
 from amogus.dashboard import Dashboard
-from amogus.event_log import EventLog
+from amogus.evaluator import Evaluator
+from amogus.event_log import EventLog, build_sqlite_index
 from amogus.exceptions import BudgetExhaustedError, ConfigError, ProviderError
 from amogus.models.config import ExperimentConfig
 from amogus.models.mission import MissionProfile
@@ -27,6 +28,7 @@ from amogus.orchestrator import Orchestrator
 from amogus.providers import create_provider
 from amogus.providers.base import TokenUsage
 from amogus.pull_request import PullRequestTracker
+from amogus.reporter import generate_debrief
 from amogus.scenario import load_scenario
 
 app = typer.Typer(
@@ -313,3 +315,78 @@ async def _resume(run_id: str, *, no_dashboard: bool = False) -> None:
     console.print(f"  Events logged:   [cyan]{len(events)}[/cyan]")
     console.print(f"  Sprints:         [cyan]{config.num_sprints}[/cyan]")
     console.print(f"  Event log:       [dim]{run_dir / 'events.jsonl'}[/dim]")
+
+
+@app.command()
+def report(
+    run_id: str = typer.Argument(..., help="Run ID to generate report for"),
+) -> None:
+    """Generate a post-run analysis report with scores and debrief."""
+    try:
+        asyncio.run(_report(run_id))
+    except ConfigError as exc:
+        console.print(f"[bold red]Configuration error:[/bold red] {exc}")
+        raise SystemExit(1)
+    except ProviderError as exc:
+        console.print(f"[bold red]Provider error:[/bold red] {exc}")
+        raise SystemExit(2)
+    except FileNotFoundError as exc:
+        console.print(f"[bold red]Not found:[/bold red] {exc}")
+        raise SystemExit(3)
+
+
+async def _report(run_id: str) -> None:
+    """Async implementation of the report command."""
+    console.print(
+        "[bold green]AMOGUS[/bold green] — Generating post-run report...",
+    )
+
+    # Locate run directory
+    run_dir = Path("runs") / run_id
+    if not run_dir.exists():
+        raise FileNotFoundError(f"Run directory not found: {run_dir}")
+
+    # Load events from JSONL
+    events_path = run_dir / "events.jsonl"
+    if not events_path.exists():
+        raise FileNotFoundError(f"Event log not found: {events_path}")
+
+    event_log = EventLog(events_path)
+    events = await event_log.read_all()
+    console.print(f"  Events loaded:   [cyan]{len(events)}[/cyan]")
+
+    # Build SQLite index
+    sqlite_path = run_dir / "events.sqlite"
+    console.print("  Building SQLite index...")
+    await build_sqlite_index(events_path, sqlite_path)
+    console.print(f"  SQLite index:    [dim]{sqlite_path}[/dim]")
+
+    # Find ExperimentStartEvent to get evaluator_model
+    evaluator_model = "claude-haiku-4-5"  # default
+    for event in events:
+        if event.event_type == "experiment_start":
+            config_snapshot = event.config_snapshot  # type: ignore[union-attr]
+            evaluator_model = config_snapshot.get("evaluator_model", evaluator_model)
+            break
+
+    console.print(f"  Evaluator model: [cyan]{evaluator_model}[/cyan]")
+
+    # Create provider and evaluator
+    provider = create_provider(evaluator_model)
+    evaluator = Evaluator(provider, event_log)
+
+    # Run evaluation
+    console.print("  Running evaluation...")
+    result = await evaluator.evaluate_run(run_dir)
+    console.print(
+        f"  Evaluation:      [cyan]{result.total_sprints} sprints, "
+        f"{len(result.key_moments)} key moments[/cyan]"
+    )
+
+    # Generate debrief reports
+    console.print("  Generating debrief...")
+    report_dir = await generate_debrief(run_dir, result)
+
+    console.print("\n[bold green]Report complete![/bold green]")
+    console.print(f"  Markdown:  [dim]{report_dir / 'debrief.md'}[/dim]")
+    console.print(f"  HTML:      [dim]{report_dir / 'debrief.html'}[/dim]")
