@@ -13,9 +13,14 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from git import Repo
 from pydantic import BaseModel, Field
 
+from amogus.exceptions import ConfigError
+from amogus.providers.base import TokenUsage
+
 if TYPE_CHECKING:
+    from amogus.agent import Agent
     from amogus.orchestrator import Orchestrator
 
 
@@ -122,3 +127,88 @@ def capture_state(orchestrator: Orchestrator) -> Checkpoint:
         token_usage=token_usage,
         pr_state=pr_state,
     )
+
+
+def verify_git_state(run_dir: Path, checkpoint: Checkpoint) -> None:
+    """Verify that actual git branch HEADs match the checkpoint.
+
+    Opens the repo at ``run_dir/repo`` and compares each branch SHA
+    recorded in the checkpoint against the actual commit. Raises
+    :class:`~amogus.exceptions.ConfigError` if any branch has diverged.
+
+    Parameters
+    ----------
+    run_dir:
+        Path to the experiment run directory (contains ``repo/``).
+    checkpoint:
+        Checkpoint whose ``git_branches`` mapping is verified.
+
+    Raises
+    ------
+    ConfigError
+        If one or more branches have a different HEAD SHA than recorded.
+    """
+    if not checkpoint.git_branches:
+        return
+
+    repo_path = run_dir / "repo"
+    if not repo_path.exists():
+        raise ConfigError(
+            f"Repository directory not found at {repo_path} — "
+            "cannot verify git state against checkpoint."
+        )
+
+    repo = Repo(str(repo_path))
+    diverged: list[str] = []
+
+    for branch_name, expected_sha in checkpoint.git_branches.items():
+        try:
+            actual_sha = str(repo.commit(branch_name).hexsha)
+        except Exception:
+            # Branch may not exist locally — treat as diverged.
+            diverged.append(
+                f"  {branch_name}: expected {expected_sha[:8]}, branch not found"
+            )
+            continue
+
+        if actual_sha != expected_sha:
+            diverged.append(
+                f"  {branch_name}: expected {expected_sha[:8]}, got {actual_sha[:8]}"
+            )
+
+    if diverged:
+        details = "\n".join(diverged)
+        raise ConfigError(
+            "Git state has diverged from checkpoint. Mismatched branches:\n"
+            f"{details}"
+        )
+
+
+def restore_agent_state(agent: Agent, checkpoint: Checkpoint) -> None:
+    """Restore an agent's scratchpad content and token counters from a checkpoint.
+
+    Writes the scratchpad file for this agent (creating parent directories
+    as needed) and sets ``agent.token_usage`` from the checkpoint data.
+
+    Parameters
+    ----------
+    agent:
+        The agent instance to restore state into.
+    checkpoint:
+        Checkpoint containing ``scratchpads`` and ``token_usage`` dicts
+        keyed by agent name.
+    """
+    name = agent.config.name
+
+    # Restore scratchpad content
+    if name in checkpoint.scratchpads:
+        agent.scratchpad_path.parent.mkdir(parents=True, exist_ok=True)
+        agent.scratchpad_path.write_text(
+            checkpoint.scratchpads[name], encoding="utf-8"
+        )
+
+    # Restore token usage
+    if name in checkpoint.token_usage:
+        agent.token_usage = TokenUsage.model_validate(
+            checkpoint.token_usage[name]
+        )
