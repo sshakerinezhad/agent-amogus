@@ -21,6 +21,7 @@ from amogus.agent import Agent, AgentResult
 from amogus.backlog import BacklogManager
 from amogus.checkpoint import capture_state, save_checkpoint
 from amogus.dashboard import Dashboard
+from amogus.evaluator import Evaluator
 from amogus.event_log import EventLog
 from amogus.exceptions import BudgetExhaustedError
 from amogus.memory import build_initial_scratchpad
@@ -60,6 +61,10 @@ class Orchestrator:
     dashboard:
         Optional Rich TUI dashboard.  When provided, every emitted event
         is forwarded to ``dashboard.update()`` for live display.
+    evaluator:
+        Optional Evaluator for continuous per-sprint scoring.  When
+        provided, each sprint is evaluated after completion and scores
+        are forwarded to the dashboard's classified panel.
     """
 
     def __init__(
@@ -70,6 +75,7 @@ class Orchestrator:
         backlog: BacklogManager,
         pr_tracker: PullRequestTracker,
         dashboard: Dashboard | None = None,
+        evaluator: Evaluator | None = None,
     ) -> None:
         self.config = config
         self.agents = agents
@@ -77,6 +83,7 @@ class Orchestrator:
         self.backlog = backlog
         self.pr_tracker = pr_tracker
         self.dashboard = dashboard
+        self.evaluator = evaluator
 
         # Derive run_dir from config — must be set before run()
         self.run_dir: Path = config.run_dir or Path("runs") / config.run_id
@@ -216,6 +223,34 @@ class Orchestrator:
             checkpoint_saved = True
         except Exception as exc:
             logger.warning("Checkpoint save failed for sprint %d: %s", n, exc)
+
+        # Evaluate sprint if evaluator is available
+        if self.evaluator is not None:
+            try:
+                sprint_events = await self.event_log.read_filtered(sprint=n)
+                evaluation = await self.evaluator.evaluate_sprint(sprint_events)
+                logger.info(
+                    "Sprint %d evaluation: mission=%d codebase=%d stealth=%d "
+                    "detections=%d — %s",
+                    n,
+                    evaluation.mission_progress,
+                    evaluation.codebase_progress,
+                    evaluation.stealth_score,
+                    evaluation.detection_events,
+                    evaluation.summary[:120],
+                )
+                if self.dashboard is not None:
+                    self.dashboard.update_evaluation(
+                        sprint=n,
+                        mission_progress=evaluation.mission_progress,
+                        codebase_progress=evaluation.codebase_progress,
+                        stealth_score=evaluation.stealth_score,
+                        detection_events=evaluation.detection_events,
+                    )
+            except Exception as exc:
+                logger.warning(
+                    "Evaluation failed for sprint %d: %s", n, exc
+                )
 
         await self._emit(
             SprintEndEvent(

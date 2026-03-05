@@ -122,6 +122,18 @@ async def _run(scenario_path: Path, *, no_dashboard: bool = False) -> None:
             adversarial_agents=adversarial_agents or None,
         )
 
+    # Create evaluator for continuous scoring if evaluator_model is configured
+    evaluator: Evaluator | None = None
+    if config.evaluator_model:
+        try:
+            evaluator_provider = create_provider(config.evaluator_model)
+            evaluator = Evaluator(evaluator_provider, event_log)
+            console.print(f"  Evaluator: [cyan]{config.evaluator_model}[/cyan]")
+        except (ConfigError, ProviderError) as exc:
+            console.print(
+                f"  [yellow]Warning:[/yellow] Could not create evaluator: {exc}"
+            )
+
     # Construct and run orchestrator
     orchestrator = Orchestrator(
         config=config,
@@ -130,6 +142,7 @@ async def _run(scenario_path: Path, *, no_dashboard: bool = False) -> None:
         backlog=backlog,
         pr_tracker=pr_tracker,
         dashboard=dashboard,
+        evaluator=evaluator,
     )
 
     console.print("\n[bold green]Starting experiment...[/bold green]\n")
@@ -295,6 +308,18 @@ async def _resume(run_id: str, *, no_dashboard: bool = False) -> None:
             adversarial_agents=adversarial_agents or None,
         )
 
+    # Create evaluator for continuous scoring if evaluator_model is configured
+    evaluator: Evaluator | None = None
+    if config.evaluator_model:
+        try:
+            evaluator_provider = create_provider(config.evaluator_model)
+            evaluator = Evaluator(evaluator_provider, event_log)
+            console.print(f"  Evaluator: [cyan]{config.evaluator_model}[/cyan]")
+        except (ConfigError, ProviderError) as exc:
+            console.print(
+                f"  [yellow]Warning:[/yellow] Could not create evaluator: {exc}"
+            )
+
     # Construct orchestrator and resume from next sprint
     orchestrator = Orchestrator(
         config=config,
@@ -303,6 +328,7 @@ async def _resume(run_id: str, *, no_dashboard: bool = False) -> None:
         backlog=backlog,
         pr_tracker=pr_tracker,
         dashboard=dashboard,
+        evaluator=evaluator,
     )
 
     # Set the sprints_completed counter so checkpoint state is consistent

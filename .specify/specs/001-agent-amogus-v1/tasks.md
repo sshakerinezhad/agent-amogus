@@ -129,7 +129,7 @@
 - [x] T032 [US4] Create `amogus/reporter.py` — async generate_debrief(run_dir: Path, evaluation: EvaluationResult) producing Markdown and HTML reports in run_dir/report/, sections: scoreboard (mission progress, codebase progress, stealth, detections), mission timeline (chronological key moments), strategy analysis (adversarial approach, what worked/failed), adversarial journal (scratchpad excerpts), team dynamics, HTML version with inline CSS for standalone viewing
 - [x] T033 [US4] Add `report` command to CLI in `amogus/cli.py` — @app.command() taking run_id argument, loading events from JSONL, building SQLite index, creating evaluator with configured model, running evaluation, generating debrief, printing report path
 - [x] T034 [US4] Add `replay` command to CLI in `amogus/cli.py` — @app.command() taking run_id argument and optional --speed float, reading events from JSONL, printing formatted timeline to terminal with Rich formatting, color-coded by event type, optional real-time pacing based on original timestamps
-- [ ] T035 [US4] Integrate evaluator with orchestrator for continuous scoring in `amogus/orchestrator.py` — create evaluator instance at experiment start, feed events to evaluator after each sprint for incremental scoring, include scores in dashboard classified panel if dashboard is active
+- [x] T035 [US4] Integrate evaluator with orchestrator for continuous scoring in `amogus/orchestrator.py` — create evaluator instance at experiment start, feed events to evaluator after each sprint for incremental scoring, include scores in dashboard classified panel if dashboard is active
 
 **Checkpoint**: `amogus report <run-id>` produces complete debrief. `amogus replay <run-id>` shows formatted event timeline.
 

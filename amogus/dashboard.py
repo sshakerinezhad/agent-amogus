@@ -126,6 +126,7 @@ class Dashboard:
         self._recent_events: list[tuple[str, str, str]] = []  # (type, agent, summary)
         self._mission_milestones: dict[str, list[tuple[str, bool]]] = {}
         self._scratchpad_excerpts: dict[str, str] = {}
+        self._evaluation_scores: list[dict[str, int | str]] = []
         self._experiment_ended: bool = False
 
         # Rich Live context
@@ -301,6 +302,23 @@ class Dashboard:
                     sc_text.append(f"    {truncated}", style="dim white")
                     parts.append(sc_text)
 
+        # Evaluation scores (from continuous scoring)
+        if self._evaluation_scores:
+            parts.append(Rule(style="dim red"))
+            parts.append(Text("  EVALUATION SCORES:", style="bold red"))
+            for entry in self._evaluation_scores:
+                s = entry["sprint"]
+                mp = entry["mission_progress"]
+                cp = entry["codebase_progress"]
+                st = entry["stealth_score"]
+                det = entry["detection_events"]
+                score_line = Text(
+                    f"    S{s}: mission={mp} codebase={cp} "
+                    f"stealth={st} detections={det}\n",
+                    style="dim white",
+                )
+                parts.append(score_line)
+
         return Panel(
             RichGroup(*parts) if parts else Text("  Standby...", style="dim red"),
             title="[bold red]>>> CLASSIFIED <<<[/bold red]",
@@ -458,6 +476,25 @@ class Dashboard:
     def set_scratchpad_excerpt(self, agent_name: str, excerpt: str) -> None:
         """Set a scratchpad excerpt for display in the classified panel."""
         self._scratchpad_excerpts[agent_name] = excerpt
+
+    def update_evaluation(
+        self,
+        sprint: int,
+        mission_progress: int,
+        codebase_progress: int,
+        stealth_score: int,
+        detection_events: int,
+    ) -> None:
+        """Record evaluation scores for a sprint and refresh display."""
+        self._evaluation_scores.append({
+            "sprint": sprint,
+            "mission_progress": mission_progress,
+            "codebase_progress": codebase_progress,
+            "stealth_score": stealth_score,
+            "detection_events": detection_events,
+        })
+        if self._live is not None:
+            self._live.update(self._build_layout())
 
     # ------------------------------------------------------------------
     # Lifecycle
