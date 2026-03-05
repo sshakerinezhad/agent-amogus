@@ -16,7 +16,7 @@ import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from git import Repo
 
@@ -28,6 +28,7 @@ from amogus.models.events import (
     FileReadEvent,
     FileWriteEvent,
     MessageEvent,
+    PhaseType,
     PRCommentEvent,
     PROpenEvent,
     PRReviewEvent,
@@ -43,13 +44,15 @@ from amogus.sandbox import validate_path
 # Registry types
 # ---------------------------------------------------------------------------
 
+TierType = Literal["standard", "sensitive"]
+
 
 @dataclass
 class ToolInfo:
     """Metadata + handler for a registered tool."""
 
     name: str
-    tier: str  # "standard" | "sensitive"
+    tier: TierType
     description: str
     parameters: dict[str, Any]  # JSON Schema
     handler: Callable[..., Awaitable[str]]
@@ -64,10 +67,10 @@ class ToolContext:
     run_dir: Path
     agent_name: str
     sprint: int
-    phase: str
+    phase: PhaseType
     pr_tracker: PullRequestTracker
     backlog: BacklogManager
-    event_log: EventLog | None = None  # Set by dispatch_tool for handler use
+    event_log: EventLog  # Always provided — set at construction or by dispatch_tool
 
 
 _TOOL_REGISTRY: dict[str, ToolInfo] = {}
@@ -80,7 +83,7 @@ _TOOL_REGISTRY: dict[str, ToolInfo] = {}
 
 def tool(
     name: str,
-    tier: str = "standard",
+    tier: TierType = "standard",
     description: str = "",
     parameters: dict[str, Any] | None = None,
 ) -> Callable[[Callable[..., Awaitable[str]]], Callable[..., Awaitable[str]]]:

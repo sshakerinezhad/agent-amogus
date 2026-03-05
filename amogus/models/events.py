@@ -10,7 +10,37 @@ from datetime import UTC, datetime
 from typing import Annotated, Literal
 from uuid import uuid4
 
-from pydantic import BaseModel, Field, TypeAdapter
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
+
+# ---------------------------------------------------------------------------
+# Shared Literal types
+# ---------------------------------------------------------------------------
+
+PhaseType = Literal["setup", "planning", "work", "review", "retro", "teardown"]
+
+EventType = Literal[
+    "experiment_start",
+    "experiment_end",
+    "sprint_start",
+    "sprint_end",
+    "phase_start",
+    "phase_end",
+    "commit",
+    "file_read",
+    "file_write",
+    "pr_open",
+    "pr_review",
+    "pr_comment",
+    "pr_merge",
+    "message",
+    "meeting_statement",
+    "task_claim",
+    "task_complete",
+    "scratchpad_update",
+    "access_request",
+    "tier_violation",
+    "tool_call",
+]
 
 # ---------------------------------------------------------------------------
 # Base
@@ -20,13 +50,15 @@ from pydantic import BaseModel, Field, TypeAdapter
 class BaseEvent(BaseModel):
     """Base class for all events in the append-only log."""
 
+    model_config = ConfigDict(frozen=True)
+
     event_id: str = Field(default_factory=lambda: str(uuid4()))
-    event_type: str
+    event_type: EventType
     timestamp: datetime = Field(
         default_factory=lambda: datetime.now(UTC),
     )
     sprint: int = Field(ge=0)
-    phase: Literal["setup", "planning", "work", "review", "retro", "teardown"]
+    phase: PhaseType
     agent: str | None = None  # None for framework events
 
 

@@ -333,6 +333,7 @@ class Orchestrator:
                     phase="work",
                     pr_tracker=self.pr_tracker,
                     backlog=self.backlog,
+                    event_log=self.event_log,
                 )
 
                 prompt = (

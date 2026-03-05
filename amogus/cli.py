@@ -73,6 +73,7 @@ async def _run(scenario_path: Path, *, no_dashboard: bool = False) -> None:
     )
 
     config = await load_scenario(scenario_path)
+    assert config.run_dir is not None, "load_scenario must set run_dir"
 
     console.print(f"  Run ID:    [cyan]{config.run_id}[/cyan]")
     console.print(f"  Target:    [cyan]{config.target_repo}[/cyan]")

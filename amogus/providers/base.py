@@ -86,6 +86,9 @@ class Provider(ABC):
     translating between canonical types and provider-specific APIs.
     """
 
+    def __init__(self, model: str, **kwargs: Any) -> None:  # noqa: B027
+        """Subclasses accept a model identifier and optional kwargs."""
+
     @abstractmethod
     async def complete(
         self,

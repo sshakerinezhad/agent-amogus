@@ -58,3 +58,8 @@ select = [
 [tool.pyright]
 pythonVersion = "3.11"
 typeCheckingMode = "standard"
+# Pydantic v2 discriminated unions require overriding `event_type` in subclasses
+# with a narrower Literal type. Pyright treats model fields as mutable variables
+# and flags this as invariant override. This is a known pyright/Pydantic
+# incompatibility — the override is safe because events are immutable (frozen).
+reportIncompatibleVariableOverride = false
