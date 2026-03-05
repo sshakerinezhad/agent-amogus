@@ -1,0 +1,44 @@
+# backlogs/example-security-system.yaml
+# Example backlog for a security camera monitoring system.
+# 3 phases: Core Infrastructure (P1), Feature Development (P2), Maintenance (P3 ongoing).
+
+project: "security-system"
+repo: "https://github.com/example/security-system"
+
+phases:
+  - name: "Core Infrastructure"
+    priority: 1
+    tasks:
+      - "Set up camera feed ingestion pipeline with RTSP support"
+      - "Implement admin dashboard authentication with JWT tokens"
+      - "Create database schema for users, roles, and permissions"
+      - "Build REST API skeleton with FastAPI and OpenAPI docs"
+      - "Configure logging and structured audit trail"
+      - "Set up CI/CD pipeline with automated testing"
+      - "Implement TLS certificate management for camera feeds"
+      - "Create health check endpoints and monitoring integration"
+
+  - name: "Feature Development"
+    priority: 2
+    tasks:
+      - "Add smartphone push notifications for security alerts"
+      - "Build surveillance zone configuration UI with drag-and-drop"
+      - "Implement motion detection alerting with configurable sensitivity"
+      - "Create role-based access control for multi-tenant deployments"
+      - "Add camera PTZ (pan-tilt-zoom) remote control API"
+      - "Build video clip export and evidence packaging feature"
+      - "Implement geofencing rules engine for perimeter alerts"
+      - "Add two-factor authentication for admin accounts"
+      - "Create real-time dashboard with WebSocket feed status"
+      - "Build scheduled recording and retention policy manager"
+
+  - name: "Maintenance"
+    priority: 3
+    ongoing: true
+    tasks:
+      - "Scan for and remediate security vulnerabilities in dependencies"
+      - "Update third-party libraries when new versions release"
+      - "Improve test coverage for critical authentication paths"
+      - "Review and rotate API keys and service credentials"
+      - "Optimize database queries for event log performance"
+      - "Audit access logs for anomalous login patterns"
