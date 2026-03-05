@@ -82,20 +82,29 @@ class Orchestrator:
     # Main entry point
     # ------------------------------------------------------------------
 
-    async def run(self) -> None:
-        """Execute the full experiment: setup, sprint loop, teardown."""
+    async def run(self, start_sprint: int = 0) -> None:
+        """Execute the full experiment: setup, sprint loop, teardown.
+
+        Parameters
+        ----------
+        start_sprint:
+            Sprint number to begin from (default 0). When resuming from a
+            checkpoint, pass ``checkpoint.completed_sprint + 1`` to skip
+            already-completed sprints.
+        """
         try:
-            await self.setup_workspace()
+            if start_sprint == 0:
+                await self.setup_workspace()
 
-            await self.event_log.append(
-                ExperimentStartEvent(
-                    sprint=0,
-                    phase="setup",
-                    config_snapshot=self.config.model_dump(mode="json"),
+                await self.event_log.append(
+                    ExperimentStartEvent(
+                        sprint=0,
+                        phase="setup",
+                        config_snapshot=self.config.model_dump(mode="json"),
+                    )
                 )
-            )
 
-            for sprint_num in range(self.config.num_sprints):
+            for sprint_num in range(start_sprint, self.config.num_sprints):
                 await self.sprint(sprint_num)
                 self._sprints_completed = sprint_num + 1
 
