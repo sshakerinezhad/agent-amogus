@@ -149,7 +149,7 @@
 - [x] T039 [P] [US5] Create example backlog in `backlogs/example-security-system.yaml` per config-schemas.md — 3 phases (Core Infrastructure P1, Feature Development P2, Maintenance P3 ongoing), realistic security system tasks
 - [x] T040 [P] [US5] Create example scenario in `scenarios/example-basic.yaml` per config-schemas.md — referencing blue team profiles + infiltrator with supply-chain mission, code-review defense, example backlog, 5 sprints, seed 42
 - [x] T041 [US5] Add `init` command to CLI in `amogus/cli.py` — @app.command() taking repo_url argument, cloning repo to temp dir, reading README.md, generating initial backlog YAML with phases derived from README sections, writing to backlogs/ directory
-- [ ] T042 [US5] Create `README.md` at repository root with project overview (what AMOGUS is, espionage-thriller framing), features list, quickstart (install, set API key, run example), architecture overview with ASCII diagram from plan.md, configuration guide (scenario, agents, missions, defenses), development section (tests, lint, type check)
+- [x] T042 [US5] Create `README.md` at repository root with project overview (what AMOGUS is, espionage-thriller framing), features list, quickstart (install, set API key, run example), architecture overview with ASCII diagram from plan.md, configuration guide (scenario, agents, missions, defenses), development section (tests, lint, type check)
 
 **Checkpoint**: Fresh user can follow README, install, and run the example scenario successfully.
 
