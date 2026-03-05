@@ -14,6 +14,9 @@ from pathlib import Path
 import typer
 import yaml
 from rich.console import Console
+from rich.panel import Panel
+from rich.rule import Rule
+from rich.text import Text
 
 from amogus.agent import Agent
 from amogus.backlog import BacklogManager
@@ -390,3 +393,156 @@ async def _report(run_id: str) -> None:
     console.print("\n[bold green]Report complete![/bold green]")
     console.print(f"  Markdown:  [dim]{report_dir / 'debrief.md'}[/dim]")
     console.print(f"  HTML:      [dim]{report_dir / 'debrief.html'}[/dim]")
+
+
+@app.command()
+def replay(
+    run_id: str = typer.Argument(..., help="Run ID to replay (directory name under runs/)"),
+    speed: float = typer.Option(1.0, "--speed", help="Playback speed multiplier (0 = instant)"),
+) -> None:
+    """Replay an experiment's event timeline with Rich formatting."""
+    try:
+        asyncio.run(_replay(run_id, speed))
+    except FileNotFoundError as exc:
+        console.print(f"[bold red]Not found:[/bold red] {exc}")
+        raise SystemExit(3)
+
+
+async def _replay(run_id: str, speed: float) -> None:
+    """Async implementation of the replay command."""
+    from datetime import datetime
+
+    # Locate run directory
+    run_dir = Path("runs") / run_id
+    if not run_dir.exists():
+        raise FileNotFoundError(f"Run directory not found: {run_dir}")
+
+    events_path = run_dir / "events.jsonl"
+    if not events_path.exists():
+        raise FileNotFoundError(f"Event log not found: {events_path}")
+
+    event_log = EventLog(events_path)
+    events = await event_log.read_all()
+
+    if not events:
+        console.print("[yellow]No events found in this run.[/yellow]")
+        return
+
+    console.print(Rule(f"[bold]AMOGUS Replay: {run_id}[/bold]"))
+    console.print(f"  Events:  [cyan]{len(events)}[/cyan]")
+    console.print(f"  Speed:   [cyan]{speed}x[/cyan] {'(instant)' if speed == 0 else ''}")
+    console.print()
+
+    # Color map by event type category
+    _COLOR_MAP: dict[str, str] = {
+        # Git events — green
+        "commit": "green",
+        "file_read": "green",
+        "file_write": "green",
+        # PR events — blue
+        "pr_open": "blue",
+        "pr_review": "blue",
+        "pr_comment": "blue",
+        "pr_merge": "blue",
+        # Communication — yellow
+        "message": "yellow",
+        "meeting_statement": "yellow",
+        # Violations / access — red
+        "tier_violation": "red",
+        "access_request": "red",
+        # Task events — cyan
+        "task_claim": "cyan",
+        "task_complete": "cyan",
+        # Framework / lifecycle — dim
+        "experiment_start": "dim",
+        "experiment_end": "dim",
+        "sprint_start": "dim",
+        "sprint_end": "dim",
+        "phase_start": "dim",
+        "phase_end": "dim",
+        "scratchpad_update": "dim",
+        "tool_call": "dim",
+    }
+
+    prev_ts: datetime | None = None
+
+    for event in events:
+        # Pacing: sleep based on original timestamp deltas
+        if speed > 0 and prev_ts is not None:
+            delta = (event.timestamp - prev_ts).total_seconds()
+            if delta > 0:
+                await asyncio.sleep(delta / speed)
+        prev_ts = event.timestamp
+
+        color = _COLOR_MAP.get(event.event_type, "white")
+        agent_str = event.agent or "framework"
+        ts_str = event.timestamp.strftime("%H:%M:%S.%f")[:-3]
+
+        # Build detail string based on event type
+        details = _replay_event_details(event)
+
+        line = Text()
+        line.append(f"[{ts_str}] ", style="dim")
+        line.append(f"[S{event.sprint}.{event.phase}] ", style="bold")
+        line.append(f"[{agent_str}] ", style="magenta")
+        line.append(f"{event.event_type}", style=f"bold {color}")
+        if details:
+            line.append(f": {details}", style=color)
+
+        console.print(line)
+
+    console.print()
+    console.print(Rule("[bold green]Replay complete[/bold green]"))
+
+
+def _replay_event_details(event: object) -> str:
+    """Extract a short detail string from an event for replay display."""
+    etype = getattr(event, "event_type", "")
+
+    if etype == "experiment_start":
+        snap = getattr(event, "config_snapshot", {})
+        return f"run={snap.get('run_id', '?')}, sprints={snap.get('num_sprints', '?')}"
+    if etype == "experiment_end":
+        return f"reason={getattr(event, 'reason', '?')}, sprints={getattr(event, 'total_sprints_completed', '?')}"
+    if etype in ("sprint_start", "sprint_end"):
+        return f"sprint {getattr(event, 'sprint_number', '?')}"
+    if etype in ("phase_start", "phase_end"):
+        return getattr(event, "phase", "")
+    if etype == "commit":
+        msg = getattr(event, "message", "")
+        return f"{getattr(event, 'sha', '')[:8]} {msg[:60]}"
+    if etype == "file_read":
+        return f"{getattr(event, 'path', '')} ({getattr(event, 'size_bytes', 0)}B)"
+    if etype == "file_write":
+        new = " (new)" if getattr(event, "is_new", False) else ""
+        return f"{getattr(event, 'path', '')}{new} ({getattr(event, 'size_bytes', 0)}B)"
+    if etype == "pr_open":
+        return f"#{getattr(event, 'pr_id', '')} {getattr(event, 'title', '')}"
+    if etype == "pr_review":
+        return f"#{getattr(event, 'pr_id', '')} verdict={getattr(event, 'verdict', '')}"
+    if etype == "pr_comment":
+        comment = getattr(event, "comment", "")
+        return f"#{getattr(event, 'pr_id', '')} {comment[:50]}"
+    if etype == "pr_merge":
+        return f"#{getattr(event, 'pr_id', '')} sha={getattr(event, 'merge_sha', '')[:8]}"
+    if etype == "message":
+        content = getattr(event, "content", "")
+        return f"to={getattr(event, 'to', '')} {content[:50]}"
+    if etype == "meeting_statement":
+        content = getattr(event, "content", "")
+        return f"[{getattr(event, 'meeting_type', '')}] {content[:60]}"
+    if etype == "task_claim":
+        return f"{getattr(event, 'task_id', '')} {getattr(event, 'task_title', '')}"
+    if etype == "task_complete":
+        return f"{getattr(event, 'task_id', '')}"
+    if etype == "scratchpad_update":
+        sections = getattr(event, "sections_updated", [])
+        return f"sections={sections}"
+    if etype == "tier_violation":
+        return f"tool={getattr(event, 'tool_name', '')} required={getattr(event, 'tier_required', '')}"
+    if etype == "access_request":
+        granted = getattr(event, "granted", False)
+        return f"tool={getattr(event, 'tool_name', '')} {'granted' if granted else 'denied'}"
+    if etype == "tool_call":
+        return f"{getattr(event, 'tool_name', '')} ({getattr(event, 'duration_ms', 0)}ms)"
+    return ""
