@@ -19,6 +19,7 @@ from git import Repo
 
 from amogus.agent import Agent, AgentResult
 from amogus.backlog import BacklogManager
+from amogus.checkpoint import capture_state, save_checkpoint
 from amogus.event_log import EventLog
 from amogus.exceptions import BudgetExhaustedError
 from amogus.memory import build_initial_scratchpad
@@ -172,12 +173,21 @@ class Orchestrator:
         await self.review_phase(n)
         await self.retro_phase(n)
 
+        # Save checkpoint after all phases complete
+        checkpoint_saved = False
+        try:
+            checkpoint = capture_state(self)
+            await save_checkpoint(self.run_dir, checkpoint)
+            checkpoint_saved = True
+        except Exception as exc:
+            logger.warning("Checkpoint save failed for sprint %d: %s", n, exc)
+
         await self.event_log.append(
             SprintEndEvent(
                 sprint=n,
                 phase="teardown",
                 sprint_number=n,
-                checkpoint_saved=False,  # No checkpoint system yet (T025)
+                checkpoint_saved=checkpoint_saved,
             )
         )
 
