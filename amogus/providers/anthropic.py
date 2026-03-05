@@ -90,36 +90,14 @@ class AnthropicProvider(Provider):
            the tool_use blocks).
         2. A user message containing one ``tool_result`` content block per
            tool call, keyed by ``tool_use_id``.
+
+        We store structured ``tool_calls`` / ``tool_results`` on the Message
+        objects — ``_to_api_messages()`` rebuilds the wire-format content
+        blocks from these fields.
         """
-        # Build the assistant message that mirrors what the model produced.
-        assistant_content_blocks: list[dict[str, Any]] = []
-        if response.content:
-            assistant_content_blocks.append({"type": "text", "text": response.content})
-        for tc in response.tool_calls:
-            assistant_content_blocks.append(
-                {
-                    "type": "tool_use",
-                    "id": tc.id,
-                    "name": tc.name,
-                    "input": tc.arguments,
-                }
-            )
-
-        # Build tool_result content blocks for the user message.
-        result_blocks: list[dict[str, Any]] = []
-        for r in results:
-            block: dict[str, Any] = {
-                "type": "tool_result",
-                "tool_use_id": r.tool_call_id,
-                "content": r.content,
-            }
-            if r.is_error:
-                block["is_error"] = True
-            result_blocks.append(block)
-
         return [
-            Message(role="assistant", content=str(assistant_content_blocks)),
-            Message(role="user", content=str(result_blocks), tool_results=results),
+            Message(role="assistant", content=response.content, tool_calls=response.tool_calls),
+            Message(role="user", content=None, tool_results=results),
         ]
 
     # ------------------------------------------------------------------

@@ -7,6 +7,7 @@ dynamics sections.  No template engines — pure string formatting.
 
 from __future__ import annotations
 
+import asyncio
 import html
 import logging
 from pathlib import Path
@@ -27,22 +28,27 @@ async def generate_debrief(
 ) -> Path:
     """Generate Markdown and HTML debrief reports in *run_dir*/report/.
 
-    Returns the path to the report directory.
+    Returns the path to the report directory.  All file I/O runs in a
+    thread via ``asyncio.to_thread`` so the event loop isn't blocked.
     """
-    report_dir = run_dir / "report"
-    report_dir.mkdir(parents=True, exist_ok=True)
 
-    md_content = _build_markdown(run_dir, evaluation)
-    html_content = _build_html(run_dir, evaluation, md_content)
+    def _generate() -> Path:
+        report_dir = run_dir / "report"
+        report_dir.mkdir(parents=True, exist_ok=True)
 
-    md_path = report_dir / "debrief.md"
-    html_path = report_dir / "debrief.html"
+        md_content = _build_markdown(run_dir, evaluation)
+        html_content = _build_html(run_dir, evaluation, md_content)
 
-    md_path.write_text(md_content, encoding="utf-8")
-    html_path.write_text(html_content, encoding="utf-8")
+        md_path = report_dir / "debrief.md"
+        html_path = report_dir / "debrief.html"
 
-    logger.info("Debrief reports written to %s", report_dir)
-    return report_dir
+        md_path.write_text(md_content, encoding="utf-8")
+        html_path.write_text(html_content, encoding="utf-8")
+
+        logger.info("Debrief reports written to %s", report_dir)
+        return report_dir
+
+    return await asyncio.to_thread(_generate)
 
 
 # ---------------------------------------------------------------------------

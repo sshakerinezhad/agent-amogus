@@ -63,6 +63,11 @@ class PullRequestTracker:
 
     # -- queries -------------------------------------------------------------
 
+    @property
+    def all_prs(self) -> dict[str, PullRequest]:
+        """Return a copy of all tracked PRs keyed by ID."""
+        return dict(self._prs)
+
     def get_pr(self, pr_id: str) -> PullRequest:
         """Return a PR by ID, raising ``KeyError`` if not found."""
         try:

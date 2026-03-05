@@ -103,3 +103,11 @@ def create_provider(model: str, **kwargs: Any) -> Provider:
 
     cls = _PROVIDERS[matched_prefix]
     return cls(model=model, **kwargs)
+
+
+# ---------------------------------------------------------------------------
+# Import provider modules so their self-registration executes.
+# ---------------------------------------------------------------------------
+
+from amogus.providers import anthropic as _anthropic  # noqa: F401, E402
+from amogus.providers import openai as _openai  # noqa: F401, E402

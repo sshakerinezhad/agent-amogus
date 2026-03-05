@@ -24,7 +24,7 @@ from amogus.dashboard import Dashboard
 from amogus.evaluator import Evaluator
 from amogus.event_log import EventLog
 from amogus.exceptions import BudgetExhaustedError
-from amogus.memory import build_initial_scratchpad
+from amogus.memory import build_initial_scratchpad, load_scratchpad
 from amogus.models.config import ExperimentConfig
 from amogus.models.events import (
     BaseEvent,
@@ -91,6 +91,16 @@ class Orchestrator:
         # Set after setup_workspace
         self._repo: Repo | None = None
         self._sprints_completed: int = 0
+
+    @property
+    def repo(self) -> Repo | None:
+        """The cloned target repository (set after setup_workspace)."""
+        return self._repo
+
+    @property
+    def sprints_completed(self) -> int:
+        """Number of sprints completed so far."""
+        return self._sprints_completed
 
     # ------------------------------------------------------------------
     # Event emission helper
@@ -336,11 +346,13 @@ class Orchestrator:
                     event_log=self.event_log,
                 )
 
+                scratchpad = load_scratchpad(agent.scratchpad_path)
                 prompt = (
                     f"Sprint {sprint} | Work Phase\n\n"
                     f"You are {agent.config.name} ({agent.config.role}). "
                     f"Review the backlog, claim tasks, and work on them using "
                     f"the available tools.\n\n"
+                    f"## Scratchpad\n{scratchpad or '(empty)'}\n\n"
                     f"## Backlog\n{backlog_context}"
                 )
 

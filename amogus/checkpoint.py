@@ -89,21 +89,21 @@ def capture_state(orchestrator: Orchestrator) -> Checkpoint:
     backlog_state: dict[str, Any] = {
         "config": backlog.config.model_dump(mode="json"),
         "tasks": [t.model_dump(mode="json") for t in backlog.tasks],
-        "task_sprint": dict(backlog._task_sprint),
+        "task_sprint": backlog.task_sprint_map,
     }
 
     # Sprint tasks: group tasks by the sprint they were claimed in
     sprint_tasks: dict[int, list[dict[str, Any]]] = {}
-    for task_id, sprint_num in backlog._task_sprint.items():
+    for task_id, sprint_num in backlog.task_sprint_map.items():
         if sprint_num not in sprint_tasks:
             sprint_tasks[sprint_num] = []
-        task = backlog._find_task(task_id)
+        task = backlog.find_task(task_id)
         sprint_tasks[sprint_num].append(task.model_dump(mode="json"))
 
     # Git branches: collect branch -> commit SHA from the repo
     git_branches: dict[str, str] = {}
-    if orchestrator._repo is not None:
-        for ref in orchestrator._repo.references:
+    if orchestrator.repo is not None:
+        for ref in orchestrator.repo.references:
             git_branches[str(ref)] = str(ref.commit.hexsha)
 
     # Token usage per agent
@@ -113,12 +113,12 @@ def capture_state(orchestrator: Orchestrator) -> Checkpoint:
 
     # PR state
     pr_state: list[dict[str, Any]] = [
-        pr.model_dump(mode="json") for pr in orchestrator.pr_tracker._prs.values()
+        pr.model_dump(mode="json") for pr in orchestrator.pr_tracker.all_prs.values()
     ]
 
     return Checkpoint(
         run_id=orchestrator.config.run_id,
-        completed_sprint=orchestrator._sprints_completed,
+        completed_sprint=orchestrator.sprints_completed,
         scratchpads=scratchpads,
         backlog_state=backlog_state,
         sprint_tasks=sprint_tasks,

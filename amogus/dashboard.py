@@ -434,9 +434,6 @@ class Dashboard:
         elif isinstance(event, ToolCallEvent):
             self._set_agent(agent, "tooling", event.tool_name)
             self._add_feed("tool_call", agent, f"{event.tool_name}: {event.result_summary[:40]}")
-            # Estimate tokens from tool calls (rough)
-            if agent:
-                self._agent_tokens[agent] = self._agent_tokens.get(agent, 0) + event.duration_ms
 
     def _set_agent(self, agent: str, status: str, action: str) -> None:
         """Update an agent's displayed status and action."""

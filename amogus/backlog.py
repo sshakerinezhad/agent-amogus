@@ -127,9 +127,18 @@ class BacklogManager:
 
         return "\n".join(lines)
 
-    def _find_task(self, task_id: str) -> SprintTask:
+    @property
+    def task_sprint_map(self) -> dict[str, int]:
+        """Map of task_id -> sprint number for all claimed tasks."""
+        return dict(self._task_sprint)
+
+    def find_task(self, task_id: str) -> SprintTask:
         """Find a task by ID or raise ValueError."""
         for task in self.tasks:
             if task.id == task_id:
                 return task
         raise ValueError(f"Task not found: {task_id}")
+
+    def _find_task(self, task_id: str) -> SprintTask:
+        """Find a task by ID or raise ValueError."""
+        return self.find_task(task_id)
