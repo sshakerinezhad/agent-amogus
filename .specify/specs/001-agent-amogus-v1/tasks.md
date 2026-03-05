@@ -35,7 +35,7 @@
 - [x] T001 Create project directory structure: `amogus/`, `amogus/models/`, `amogus/providers/`, `agents/blue/`, `agents/red/`, `missions/`, `defenses/`, `backlogs/`, `scenarios/`, `tests/`, `tests/test_models/`, `tests/test_providers/`
 - [x] T002 Create `pyproject.toml` with project metadata, Python 3.11+ requirement, dependencies (pydantic>=2.0, typer>=0.9, gitpython>=3.1, rich>=13.0, pyyaml>=6.0, anthropic>=0.25, openai>=1.0), dev dependencies (pytest, pytest-asyncio, ruff, pyright), CLI entry point `amogus = "amogus.cli:app"`, ruff and pyright configuration sections
 - [x] T003 [P] Create `amogus/__init__.py` with `__version__ = "0.1.0"`
-- [ ] T004 [P] Create `tests/conftest.py` with shared fixtures: MockProvider (implements Provider ABC with canned responses), temp_repo (GitPython test repo in tmpdir), temp_run_dir (with scratchpads/ and worktrees/ subdirs), sample ExperimentConfig/AgentConfig factories
+- [x] T004 [P] Create `tests/conftest.py` with shared fixtures: MockProvider (implements Provider ABC with canned responses), temp_repo (GitPython test repo in tmpdir), temp_run_dir (with scratchpads/ and worktrees/ subdirs), sample ExperimentConfig/AgentConfig factories
 
 **Checkpoint**: Project installable via `pip install -e ".[dev]"`, pytest runs with no tests collected
 
