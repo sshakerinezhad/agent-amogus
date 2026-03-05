@@ -9,6 +9,9 @@ the Orchestrator.
 from __future__ import annotations
 
 import asyncio
+import re
+import shutil
+import tempfile
 from pathlib import Path
 
 import typer
@@ -519,6 +522,130 @@ async def _replay(run_id: str, speed: float) -> None:
 
     console.print()
     console.print(Rule("[bold green]Replay complete[/bold green]"))
+
+
+@app.command()
+def init(
+    repo_url: str = typer.Argument(..., help="URL of target repository"),
+) -> None:
+    """Generate an initial backlog YAML from a repository's README."""
+    try:
+        asyncio.run(_init(repo_url))
+    except Exception as exc:
+        console.print(f"[bold red]Error:[/bold red] {exc}")
+        raise SystemExit(1)
+
+
+async def _init(repo_url: str) -> None:
+    """Async implementation of the init command."""
+    from git import Repo
+
+    console.print(
+        "[bold green]AMOGUS[/bold green] — Initializing backlog from repository...",
+    )
+
+    # Derive project name from repo URL (last path component without .git)
+    project_name = repo_url.rstrip("/").rsplit("/", maxsplit=1)[-1]
+    if project_name.endswith(".git"):
+        project_name = project_name[:-4]
+    project_name = project_name or "unknown-project"
+    console.print(f"  Project: [cyan]{project_name}[/cyan]")
+
+    # Clone repo to temp directory
+    tmp_dir = tempfile.mkdtemp(prefix="amogus-init-")
+    try:
+        console.print(f"  Cloning: [dim]{repo_url}[/dim]")
+        repo = await asyncio.to_thread(Repo.clone_from, repo_url, tmp_dir, depth=1)
+
+        # Look for README.md in cloned repo
+        readme_path = Path(tmp_dir) / "README.md"
+        phases: list[dict[str, object]] = []
+
+        if readme_path.exists():
+            console.print("  Found README.md — deriving phases from section headings...")
+            readme_text = readme_path.read_text(encoding="utf-8")
+            # Parse ## headings to derive phase names
+            headings = re.findall(r"^##\s+(.+)$", readme_text, re.MULTILINE)
+
+            if headings:
+                for idx, heading in enumerate(headings, start=1):
+                    heading_clean = heading.strip()
+                    phases.append({
+                        "name": heading_clean,
+                        "priority": idx,
+                        "tasks": [f"Implement {heading_clean} functionality"],
+                    })
+                console.print(f"  Derived [cyan]{len(phases)}[/cyan] phases from README sections")
+            else:
+                console.print("  No ## headings found — using default phases")
+                phases = _default_phases()
+        else:
+            console.print("  No README.md found — using default phases")
+            phases = _default_phases()
+
+        # Generate backlog YAML
+        backlog_data = {
+            "project": project_name,
+            "repo": repo_url,
+            "phases": phases,
+        }
+
+        # Write to backlogs/ directory
+        backlogs_dir = Path("backlogs")
+        backlogs_dir.mkdir(parents=True, exist_ok=True)
+        output_path = backlogs_dir / f"{project_name}.yaml"
+
+        with open(output_path, "w", encoding="utf-8") as f:
+            f.write(f"# backlogs/{project_name}.yaml\n")
+            f.write(f"# Auto-generated backlog for {project_name} from {repo_url}\n\n")
+            yaml.dump(
+                backlog_data,
+                f,
+                default_flow_style=False,
+                sort_keys=False,
+                allow_unicode=True,
+            )
+
+        console.print(f"\n[bold green]Backlog generated![/bold green]")
+        console.print(f"  Path: [dim]{output_path}[/dim]")
+
+    finally:
+        # Cleanup temp directory
+        await asyncio.to_thread(shutil.rmtree, tmp_dir, True)
+
+
+def _default_phases() -> list[dict[str, object]]:
+    """Return default 3-phase backlog when no README sections are available."""
+    return [
+        {
+            "name": "Setup",
+            "priority": 1,
+            "tasks": [
+                "Initialize project structure",
+                "Set up development environment",
+                "Configure CI/CD pipeline",
+            ],
+        },
+        {
+            "name": "Development",
+            "priority": 2,
+            "tasks": [
+                "Implement core features",
+                "Add error handling and validation",
+                "Write documentation",
+            ],
+        },
+        {
+            "name": "Maintenance",
+            "priority": 3,
+            "ongoing": True,
+            "tasks": [
+                "Monitor and fix bugs",
+                "Update dependencies",
+                "Improve test coverage",
+            ],
+        },
+    ]
 
 
 def _replay_event_details(event: object) -> str:
