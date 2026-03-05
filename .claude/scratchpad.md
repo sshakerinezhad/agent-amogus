@@ -4,56 +4,48 @@
 
 Adversarial Multi-agent Operations for Gauging Undetected Sabotage — an open-source Python framework for running long-horizon adversarial experiments on real codebases with autonomous coding agent teams.
 
-## Session Summary (2026-03-04, session 4)
+## Session Summary (2026-03-05, session 9)
 
 ### What was done
 
-1. **`/speckit.plan` completed** — Full implementation plan designed with research, data models, contracts, and quickstart guide
-2. **3 parallel research agents dispatched** — Provider abstractions, async orchestration patterns, GitPython patterns
-3. **10 technical unknowns resolved** in research.md
+**Executed the full bug fix plan** from `.claude/work-plan.md`:
 
-### Key Architecture Decisions
+#### Critical Bugs — ALL FIXED
+1. **Provider Registry Dead** → Added imports of `anthropic`/`openai` modules in `providers/__init__.py`
+2. **Anthropic Tool Loop Broken** → Simplified `format_tool_results` to pass structured `tool_calls`/`tool_results` instead of `str()`-ified dicts
+3. **Work Phase Drops Scratchpad** → Added `load_scratchpad()` call and included content in the work phase prompt
 
-1. **Git worktrees** for parallel agent work — each agent gets their own working directory, sharing one object store. Solves GitPython thread-safety issues.
-2. **Pydantic v2 discriminated unions** for 21 event types — O(1) deserialization on `event_type` field
-3. **Provider abstraction** normalizes Anthropic + OpenAI at the boundary (tool schemas, message formats, token counting)
-4. **Constructor injection throughout** — no DI framework, compose at top-level `main()`
-5. **Thin tool layer** — `tools.py` delegates to domain modules (`memory.py`, `pull_request.py`, `sandbox.py`)
-6. **Scratchpads outside repo** — stored in `runs/<run-id>/scratchpads/`, eliminates git isolation concerns
-7. **Deterministic scratchpad compression** — take first line of old entries, no LLM summarization for v1
+#### Minor Issues — ALL FIXED
+4. **Private attr access in checkpoint.py** → Added public accessors: `BacklogManager.task_sprint_map`, `BacklogManager.find_task()`, `PullRequestTracker.all_prs`, `Orchestrator.repo`, `Orchestrator.sprints_completed`
+5. **Dashboard token tracking** → Removed incorrect `duration_ms` → token accumulation
+6. **Reporter async/sync** → Wrapped sync I/O in `asyncio.to_thread`
 
-### Plan Artifacts Generated
-
-- `plan.md` — Technical context, constitution check, project structure, architecture overview
-- `research.md` — 10 resolved unknowns (R1-R10) with Decision/Rationale/Alternatives
-- `data-model.md` — All Pydantic models, relationships, validation rules, state transitions
-- `contracts/provider.md` — Provider ABC interface
-- `contracts/tools.md` — Tool system interface + catalog (15 standard + 5 sensitive tools)
-- `contracts/events.md` — Event system interface + 21 event types
-- `contracts/config-schemas.md` — All user-facing YAML schemas
-- `quickstart.md` — Developer getting started guide
+#### Verification — ALL PASSING
+- `ruff check .` → All checks passed
+- `ruff format --check .` → 28 files already formatted
+- `pyright` → 0 errors, 0 warnings
+- Provider smoke test → `['claude', 'gpt']` registered successfully
 
 ### Current State
 
 - **Branch**: `001-agent-amogus-v1`
-- **Speckit phase**: `plan` (complete)
-- **No implementation code written yet**
-- **CLAUDE.md updated** with active technologies
+- **All 45/45 tasks complete** from speckit
+- **All 6 bugs/issues fixed** and verified
+- **Changes are uncommitted** — need to commit + push
+- **Ready to push** after committing
 
-### Next Steps
+### Next Steps (for next session)
 
-- Run `/speckit.tasks` to break the plan into implementable tasks
-- Then `/speckit.implement` to execute tasks
+1. **Write a user-facing guide** — User wants a clear, simple, well-structured guide explaining how the codebase works and how to use it (not just a README — a proper walkthrough)
+2. **Commit all uncommitted changes** — bug fixes + minor fixes
+3. **Push** `001-agent-amogus-v1` branch
+4. **PR creation**: Merge to `main`
+5. **Integration test**: `pip install -e ".[dev]"` + `amogus run --scenario scenarios/example-basic.yaml`
+6. **Unit tests**: Write tests using conftest fixtures
 
-### Key Files
+### Key References
 
+- Work plan with full project map: `.claude/work-plan.md`
 - Masterplan: `.claude/masterplan.md`
-- Constitution: `.specify/memory/constitution.md`
 - Spec: `.specify/specs/001-agent-amogus-v1/spec.md`
-- **Plan: `.specify/specs/001-agent-amogus-v1/plan.md`**
-- **Research: `.specify/specs/001-agent-amogus-v1/research.md`**
-- **Data model: `.specify/specs/001-agent-amogus-v1/data-model.md`**
-- **Contracts: `.specify/specs/001-agent-amogus-v1/contracts/`**
-- **Quickstart: `.specify/specs/001-agent-amogus-v1/quickstart.md`**
-- Quality checklist: `.specify/specs/001-agent-amogus-v1/checklists/requirements.md`
-- Speckit state: `.specify/specs/001-agent-amogus-v1/.speckit-state.json`
+- Tasks: `.specify/specs/001-agent-amogus-v1/tasks.md` (all 45 marked [x])
