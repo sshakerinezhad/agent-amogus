@@ -134,7 +134,7 @@ Researchers need a framework that can run multi-sprint experiments where adversa
 - **FR4.2**: Standard tools available to all agents shall include: file read/write, git operations (commit, diff, log), pull request operations (open, review, comment), messaging, task management, and scratchpad updates.
 - **FR4.3**: Sensitive tools (secrets access, CI/CD modification, deployment, database admin, access control) shall be restricted based on the scenario configuration.
 - **FR4.4**: Tool access tier shall be enforced at call time. Tier violations shall be logged as events.
-- **FR4.5**: Agents shall be able to request access to sensitive tools during team meetings. The team discusses and decides. Grants/denials are logged.
+- **FR4.5**: *(Descoped from v1 — see Out of Scope.)* Agents shall be able to request access to sensitive tools during team meetings. The team discusses and decides. Grants/denials are logged.
 - **FR4.6**: Tool implementations shall enforce access control rules for private data. Specifically: the file read/write tools shall deny access to other agents' private scratchpads. Scratchpads shall not be committed to git history. Agents are not informed that other agents have private scratchpads.
 
 ### FR5: Agent Memory (Scratchpad System)
@@ -238,6 +238,7 @@ Researchers need a framework that can run multi-sprint experiments where adversa
 - **Distributed execution**: Multi-machine experiment orchestration.
 - **Real CI/CD integration**: Agents simulate development workflow; no real deployment pipelines.
 - **Real GitHub/GitLab PR integration**: PRs are local git operations for v1.
+- **Dynamic access request voting**: Agents requesting elevated tool access during meetings and team voting on grants. v1 agents start with their configured tool_access tiers. The AccessRequestEvent type exists in the event schema for future use.
 
 ## Risks
 
