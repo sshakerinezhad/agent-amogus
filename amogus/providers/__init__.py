@@ -16,22 +16,22 @@ from amogus.providers.base import (
     Message,
     Provider,
     Response,
+    TokenUsage,
     ToolCall,
     ToolDefinition,
     ToolResult,
-    TokenUsage,
 )
 
 __all__ = [
-    "Provider",
     "Message",
-    "ToolCall",
-    "ToolResult",
-    "ToolDefinition",
+    "Provider",
     "Response",
     "TokenUsage",
-    "register_provider",
+    "ToolCall",
+    "ToolDefinition",
+    "ToolResult",
     "create_provider",
+    "register_provider",
 ]
 
 # ---------------------------------------------------------------------------
@@ -83,15 +83,15 @@ def create_provider(model: str, **kwargs: Any) -> Provider:
     # "openrouter-…" if both are registered.
     matched_prefix: str | None = None
     for prefix in _PROVIDERS:
-        if model.startswith(prefix):
-            if matched_prefix is None or len(prefix) > len(matched_prefix):
-                matched_prefix = prefix
+        if model.startswith(prefix) and (
+            matched_prefix is None or len(prefix) > len(matched_prefix)
+        ):
+            matched_prefix = prefix
 
     if matched_prefix is None:
         registered = ", ".join(sorted(_PROVIDERS)) or "(none)"
         raise ConfigError(
-            f"No provider registered for model {model!r}. "
-            f"Registered prefixes: {registered}"
+            f"No provider registered for model {model!r}. Registered prefixes: {registered}"
         )
 
     # Check API key env var if one is configured for this prefix.

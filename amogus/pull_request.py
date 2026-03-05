@@ -8,16 +8,16 @@ so the orchestrator's event loop stays responsive.
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Literal
 
 from git import Repo
 from pydantic import BaseModel, Field
 
-
 # ---------------------------------------------------------------------------
 # Data models
 # ---------------------------------------------------------------------------
+
 
 class PRReview(BaseModel):
     """A single review attached to a pull request."""
@@ -26,7 +26,7 @@ class PRReview(BaseModel):
     verdict: Literal["approve", "reject", "comment"]
     comments: list[str] = []
     reviewed_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc),
+        default_factory=lambda: datetime.now(UTC),
     )
 
 
@@ -42,13 +42,14 @@ class PullRequest(BaseModel):
     status: Literal["open", "merged", "closed"] = "open"
     reviews: list[PRReview] = []
     created_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc),
+        default_factory=lambda: datetime.now(UTC),
     )
 
 
 # ---------------------------------------------------------------------------
 # Tracker
 # ---------------------------------------------------------------------------
+
 
 class PullRequestTracker:
     """Manages the full PR lifecycle within a local git repository.

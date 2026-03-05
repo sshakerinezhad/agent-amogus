@@ -17,7 +17,6 @@ from pathlib import Path
 import typer
 import yaml
 from rich.console import Console
-from rich.panel import Panel
 from rich.rule import Rule
 from rich.text import Text
 
@@ -56,10 +55,10 @@ def run(
         asyncio.run(_run(scenario, no_dashboard=no_dashboard))
     except ConfigError as exc:
         console.print(f"[bold red]Configuration error:[/bold red] {exc}")
-        raise SystemExit(1)
+        raise SystemExit(1) from exc
     except ProviderError as exc:
         console.print(f"[bold red]Provider error:[/bold red] {exc}")
-        raise SystemExit(2)
+        raise SystemExit(2) from exc
     except BudgetExhaustedError as exc:
         console.print(
             f"[bold yellow]Budget exhausted:[/bold yellow] {exc}\n"
@@ -133,9 +132,7 @@ async def _run(scenario_path: Path, *, no_dashboard: bool = False) -> None:
             evaluator = Evaluator(evaluator_provider, event_log)
             console.print(f"  Evaluator: [cyan]{config.evaluator_model}[/cyan]")
         except (ConfigError, ProviderError) as exc:
-            console.print(
-                f"  [yellow]Warning:[/yellow] Could not create evaluator: {exc}"
-            )
+            console.print(f"  [yellow]Warning:[/yellow] Could not create evaluator: {exc}")
 
     # Construct and run orchestrator
     orchestrator = Orchestrator(
@@ -172,10 +169,10 @@ def resume(
         asyncio.run(_resume(run_id, no_dashboard=no_dashboard))
     except ConfigError as exc:
         console.print(f"[bold red]Configuration error:[/bold red] {exc}")
-        raise SystemExit(1)
+        raise SystemExit(1) from exc
     except ProviderError as exc:
         console.print(f"[bold red]Provider error:[/bold red] {exc}")
-        raise SystemExit(2)
+        raise SystemExit(2) from exc
     except BudgetExhaustedError as exc:
         console.print(
             f"[bold yellow]Budget exhausted:[/bold yellow] {exc}\n"
@@ -183,7 +180,7 @@ def resume(
         )
     except FileNotFoundError as exc:
         console.print(f"[bold red]Not found:[/bold red] {exc}")
-        raise SystemExit(3)
+        raise SystemExit(3) from exc
 
 
 async def _resume(run_id: str, *, no_dashboard: bool = False) -> None:
@@ -226,9 +223,7 @@ async def _resume(run_id: str, *, no_dashboard: bool = False) -> None:
     console.print(f"  Target:    [cyan]{config.target_repo}[/cyan]")
     console.print(f"  Team:      [cyan]{len(config.team)} agents[/cyan]")
     console.print(f"  Sprints:   [cyan]{config.num_sprints}[/cyan]")
-    console.print(
-        f"  Resuming:  [cyan]from sprint {checkpoint.completed_sprint + 1}[/cyan]"
-    )
+    console.print(f"  Resuming:  [cyan]from sprint {checkpoint.completed_sprint + 1}[/cyan]")
 
     # Verify git branch SHAs match checkpoint
     if checkpoint.git_branches:
@@ -290,9 +285,7 @@ async def _resume(run_id: str, *, no_dashboard: bool = False) -> None:
         if agent_config.name in checkpoint.scratchpads:
             scratchpad_path = agent.scratchpad_path
             scratchpad_path.parent.mkdir(parents=True, exist_ok=True)
-            scratchpad_path.write_text(
-                checkpoint.scratchpads[agent_config.name], encoding="utf-8"
-            )
+            scratchpad_path.write_text(checkpoint.scratchpads[agent_config.name], encoding="utf-8")
 
         # Restore token usage from checkpoint
         if agent_config.name in checkpoint.token_usage:
@@ -319,9 +312,7 @@ async def _resume(run_id: str, *, no_dashboard: bool = False) -> None:
             evaluator = Evaluator(evaluator_provider, event_log)
             console.print(f"  Evaluator: [cyan]{config.evaluator_model}[/cyan]")
         except (ConfigError, ProviderError) as exc:
-            console.print(
-                f"  [yellow]Warning:[/yellow] Could not create evaluator: {exc}"
-            )
+            console.print(f"  [yellow]Warning:[/yellow] Could not create evaluator: {exc}")
 
     # Construct orchestrator and resume from next sprint
     orchestrator = Orchestrator(
@@ -358,13 +349,13 @@ def report(
         asyncio.run(_report(run_id))
     except ConfigError as exc:
         console.print(f"[bold red]Configuration error:[/bold red] {exc}")
-        raise SystemExit(1)
+        raise SystemExit(1) from exc
     except ProviderError as exc:
         console.print(f"[bold red]Provider error:[/bold red] {exc}")
-        raise SystemExit(2)
+        raise SystemExit(2) from exc
     except FileNotFoundError as exc:
         console.print(f"[bold red]Not found:[/bold red] {exc}")
-        raise SystemExit(3)
+        raise SystemExit(3) from exc
 
 
 async def _report(run_id: str) -> None:
@@ -434,7 +425,7 @@ def replay(
         asyncio.run(_replay(run_id, speed))
     except FileNotFoundError as exc:
         console.print(f"[bold red]Not found:[/bold red] {exc}")
-        raise SystemExit(3)
+        raise SystemExit(3) from exc
 
 
 async def _replay(run_id: str, speed: float) -> None:
@@ -463,7 +454,7 @@ async def _replay(run_id: str, speed: float) -> None:
     console.print()
 
     # Color map by event type category
-    _COLOR_MAP: dict[str, str] = {
+    _color_map: dict[str, str] = {
         # Git events — green
         "commit": "green",
         "file_read": "green",
@@ -503,7 +494,7 @@ async def _replay(run_id: str, speed: float) -> None:
                 await asyncio.sleep(delta / speed)
         prev_ts = event.timestamp
 
-        color = _COLOR_MAP.get(event.event_type, "white")
+        color = _color_map.get(event.event_type, "white")
         agent_str = event.agent or "framework"
         ts_str = event.timestamp.strftime("%H:%M:%S.%f")[:-3]
 
@@ -533,7 +524,7 @@ def init(
         asyncio.run(_init(repo_url))
     except Exception as exc:
         console.print(f"[bold red]Error:[/bold red] {exc}")
-        raise SystemExit(1)
+        raise SystemExit(1) from exc
 
 
 async def _init(repo_url: str) -> None:
@@ -555,7 +546,7 @@ async def _init(repo_url: str) -> None:
     tmp_dir = tempfile.mkdtemp(prefix="amogus-init-")
     try:
         console.print(f"  Cloning: [dim]{repo_url}[/dim]")
-        repo = await asyncio.to_thread(Repo.clone_from, repo_url, tmp_dir, depth=1)
+        await asyncio.to_thread(Repo.clone_from, repo_url, tmp_dir, depth=1)
 
         # Look for README.md in cloned repo
         readme_path = Path(tmp_dir) / "README.md"
@@ -570,11 +561,13 @@ async def _init(repo_url: str) -> None:
             if headings:
                 for idx, heading in enumerate(headings, start=1):
                     heading_clean = heading.strip()
-                    phases.append({
-                        "name": heading_clean,
-                        "priority": idx,
-                        "tasks": [f"Implement {heading_clean} functionality"],
-                    })
+                    phases.append(
+                        {
+                            "name": heading_clean,
+                            "priority": idx,
+                            "tasks": [f"Implement {heading_clean} functionality"],
+                        }
+                    )
                 console.print(f"  Derived [cyan]{len(phases)}[/cyan] phases from README sections")
             else:
                 console.print("  No ## headings found — using default phases")
@@ -606,7 +599,7 @@ async def _init(repo_url: str) -> None:
                 allow_unicode=True,
             )
 
-        console.print(f"\n[bold green]Backlog generated![/bold green]")
+        console.print("\n[bold green]Backlog generated![/bold green]")
         console.print(f"  Path: [dim]{output_path}[/dim]")
 
     finally:
@@ -656,7 +649,9 @@ def _replay_event_details(event: object) -> str:
         snap = getattr(event, "config_snapshot", {})
         return f"run={snap.get('run_id', '?')}, sprints={snap.get('num_sprints', '?')}"
     if etype == "experiment_end":
-        return f"reason={getattr(event, 'reason', '?')}, sprints={getattr(event, 'total_sprints_completed', '?')}"
+        reason = getattr(event, "reason", "?")
+        sprints = getattr(event, "total_sprints_completed", "?")
+        return f"reason={reason}, sprints={sprints}"
     if etype in ("sprint_start", "sprint_end"):
         return f"sprint {getattr(event, 'sprint_number', '?')}"
     if etype in ("phase_start", "phase_end"):
@@ -692,7 +687,9 @@ def _replay_event_details(event: object) -> str:
         sections = getattr(event, "sections_updated", [])
         return f"sections={sections}"
     if etype == "tier_violation":
-        return f"tool={getattr(event, 'tool_name', '')} required={getattr(event, 'tier_required', '')}"
+        tool = getattr(event, "tool_name", "")
+        tier = getattr(event, "tier_required", "")
+        return f"tool={tool} required={tier}"
     if etype == "access_request":
         granted = getattr(event, "granted", False)
         return f"tool={getattr(event, 'tool_name', '')} {'granted' if granted else 'denied'}"

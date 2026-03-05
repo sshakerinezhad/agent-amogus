@@ -47,10 +47,9 @@ class EventLog:
 
     def _write_line(self, line: str) -> None:
         """Thread-safe, synchronous file append (runs in worker thread)."""
-        with self._lock:
-            with self._path.open("a", encoding="utf-8") as fh:
-                fh.write(line)
-                fh.flush()
+        with self._lock, self._path.open("a", encoding="utf-8") as fh:
+            fh.write(line)
+            fh.flush()
 
     # ------------------------------------------------------------------
     # Read helpers (all offloaded to threads)
@@ -99,6 +98,7 @@ class EventLog:
 # SQLite index builder
 # ------------------------------------------------------------------
 
+
 def _build_sqlite_index_sync(jsonl_path: Path, sqlite_path: Path) -> None:
     """Build a queryable SQLite index from a JSONL event log (synchronous).
 
@@ -137,15 +137,17 @@ def _build_sqlite_index_sync(jsonl_path: Path, sqlite_path: Path) -> None:
                 if not line:
                     continue
                 event = EventAdapter.validate_json(line)
-                rows.append((
-                    event.event_id,
-                    event.event_type,
-                    event.timestamp.isoformat(),
-                    event.sprint,
-                    event.phase,
-                    event.agent,
-                    line,  # full JSON as data column
-                ))
+                rows.append(
+                    (
+                        event.event_id,
+                        event.event_type,
+                        event.timestamp.isoformat(),
+                        event.sprint,
+                        event.phase,
+                        event.agent,
+                        line,  # full JSON as data column
+                    )
+                )
 
         conn.executemany(
             """

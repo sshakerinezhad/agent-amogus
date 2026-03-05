@@ -98,9 +98,7 @@ class Provider(ABC):
         ...
 
     @abstractmethod
-    def format_tool_results(
-        self, response: Response, results: list[ToolResult]
-    ) -> list[Message]:
+    def format_tool_results(self, response: Response, results: list[ToolResult]) -> list[Message]:
         """Format tool results into messages for the next provider call.
 
         Different providers expect tool results in different message formats

@@ -100,8 +100,7 @@ def _md_mission_timeline(key_moments: list[KeyMoment]) -> str:
     for moment in sorted_moments:
         marker = _significance_marker(moment.significance)
         lines.append(
-            f"- {marker} **Sprint {moment.sprint}** "
-            f"[{moment.category}] {moment.description}"
+            f"- {marker} **Sprint {moment.sprint}** [{moment.category}] {moment.description}"
         )
 
     lines.append("")
@@ -117,9 +116,7 @@ def _md_sprint_analysis(sprint_evals: list[SprintEvaluation]) -> str:
 
     for sprint_eval in sprint_evals:
         lines.append(f"### Sprint {sprint_eval.sprint}\n")
-        lines.append(
-            f"| Mission | Codebase | Stealth | Detections | Near Misses |"
-        )
+        lines.append("| Mission | Codebase | Stealth | Detections | Near Misses |")
         lines.append("|---|---|---|---|---|")
         lines.append(
             f"| {sprint_eval.mission_progress} | "
@@ -516,7 +513,7 @@ def _html_adversarial_journal(run_dir: Path) -> str:
         else:
             display = _esc(content)
 
-        parts.append(f'<div class="classified">')
+        parts.append('<div class="classified">')
         parts.append(f"<h3>Agent: {_esc(agent_name)}</h3>")
         parts.append(f"<pre>{display}</pre>")
         parts.append("</div>")
@@ -566,8 +563,7 @@ def _html_team_dynamics(run_dir: Path) -> str:
         for agent, etype, content in sprint_groups[sprint_num]:
             label = "Meeting" if etype == "meeting_statement" else "Message"
             parts.append(
-                f"<li><strong>{_esc(agent)}</strong> ({_esc(label)}): "
-                f"{_esc(content)}</li>"
+                f"<li><strong>{_esc(agent)}</strong> ({_esc(label)}): {_esc(content)}</li>"
             )
         parts.append("</ul>")
 

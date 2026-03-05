@@ -18,16 +18,16 @@ from typing import Any
 import openai
 
 from amogus.exceptions import ProviderError
+from amogus.providers import register_provider
 from amogus.providers.base import (
     Message,
     Provider,
     Response,
+    TokenUsage,
     ToolCall,
     ToolDefinition,
     ToolResult,
-    TokenUsage,
 )
-from amogus.providers import register_provider
 
 logger = logging.getLogger(__name__)
 
@@ -87,9 +87,7 @@ class OpenAIProvider(Provider):
         completion = await self._call_with_retry(**kwargs)
         return self._normalize_response(completion)
 
-    def format_tool_results(
-        self, response: Response, results: list[ToolResult]
-    ) -> list[Message]:
+    def format_tool_results(self, response: Response, results: list[ToolResult]) -> list[Message]:
         """Format tool results as separate tool-role messages.
 
         OpenAI expects one message per tool result, each with
@@ -118,9 +116,7 @@ class OpenAIProvider(Provider):
     # -- Internal helpers ------------------------------------------------------
 
     @staticmethod
-    def _build_messages(
-        system: str, messages: list[Message]
-    ) -> list[dict[str, Any]]:
+    def _build_messages(system: str, messages: list[Message]) -> list[dict[str, Any]]:
         """Convert canonical messages to the OpenAI wire format.
 
         Prepends the system message as ``{"role": "system", ...}``.
@@ -214,9 +210,7 @@ class OpenAIProvider(Provider):
             "tool_calls": "tool_calls",
             "length": "max_tokens",
         }
-        stop_reason = finish_reason_map.get(
-            choice.finish_reason or "stop", "end_turn"
-        )
+        stop_reason = finish_reason_map.get(choice.finish_reason or "stop", "end_turn")
 
         # -- Token usage -------------------------------------------------------
         usage_data = completion.usage
@@ -259,8 +253,7 @@ class OpenAIProvider(Provider):
 
                 delay = _BASE_DELAY * (2**attempt)
                 logger.warning(
-                    "OpenAI API error %d on attempt %d/%d for model %s — "
-                    "retrying in %.1fs",
+                    "OpenAI API error %d on attempt %d/%d for model %s — retrying in %.1fs",
                     exc.status_code,
                     attempt + 1,
                     _MAX_RETRIES,
@@ -274,8 +267,7 @@ class OpenAIProvider(Provider):
                 last_status = None
                 delay = _BASE_DELAY * (2**attempt)
                 logger.warning(
-                    "OpenAI connection error on attempt %d/%d for model %s — "
-                    "retrying in %.1fs",
+                    "OpenAI connection error on attempt %d/%d for model %s — retrying in %.1fs",
                     attempt + 1,
                     _MAX_RETRIES,
                     self._model,

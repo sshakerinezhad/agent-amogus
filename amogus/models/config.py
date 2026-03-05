@@ -80,16 +80,12 @@ class ExperimentConfig(BaseModel):
 
     @field_validator("mission_assignments")
     @classmethod
-    def validate_missions_reference_team(
-        cls, v: dict[str, str], info: object
-    ) -> dict[str, str]:
+    def validate_missions_reference_team(cls, v: dict[str, str], info: object) -> dict[str, str]:
         if "team" in info.data:  # type: ignore[union-attr]
             team_names = {a.name for a in info.data["team"]}  # type: ignore[union-attr]
             for agent_name in v:
                 if agent_name not in team_names:
-                    raise ValueError(
-                        f"Mission assigned to unknown agent: {agent_name}"
-                    )
+                    raise ValueError(f"Mission assigned to unknown agent: {agent_name}")
         return v
 
 

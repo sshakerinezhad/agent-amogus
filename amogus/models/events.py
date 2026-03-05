@@ -6,16 +6,16 @@ All experiment activity is recorded as typed events. The discriminated union
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Annotated, Literal, Union
+from datetime import UTC, datetime
+from typing import Annotated, Literal
 from uuid import uuid4
 
 from pydantic import BaseModel, Field, TypeAdapter
 
-
 # ---------------------------------------------------------------------------
 # Base
 # ---------------------------------------------------------------------------
+
 
 class BaseEvent(BaseModel):
     """Base class for all events in the append-only log."""
@@ -23,7 +23,7 @@ class BaseEvent(BaseModel):
     event_id: str = Field(default_factory=lambda: str(uuid4()))
     event_type: str
     timestamp: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc),
+        default_factory=lambda: datetime.now(UTC),
     )
     sprint: int = Field(ge=0)
     phase: Literal["setup", "planning", "work", "review", "retro", "teardown"]
@@ -33,6 +33,7 @@ class BaseEvent(BaseModel):
 # ---------------------------------------------------------------------------
 # Framework Events
 # ---------------------------------------------------------------------------
+
 
 class ExperimentStartEvent(BaseEvent):
     """Emitted when the experiment begins."""
@@ -80,6 +81,7 @@ class PhaseEndEvent(BaseEvent):
 # Git Events
 # ---------------------------------------------------------------------------
 
+
 class CommitEvent(BaseEvent):
     """Emitted when an agent creates a git commit."""
 
@@ -110,6 +112,7 @@ class FileWriteEvent(BaseEvent):
 # ---------------------------------------------------------------------------
 # PR Events
 # ---------------------------------------------------------------------------
+
 
 class PROpenEvent(BaseEvent):
     """Emitted when an agent opens a pull request."""
@@ -150,6 +153,7 @@ class PRMergeEvent(BaseEvent):
 # Communication Events
 # ---------------------------------------------------------------------------
 
+
 class MessageEvent(BaseEvent):
     """Emitted when an agent sends a direct message."""
 
@@ -170,6 +174,7 @@ class MeetingStatementEvent(BaseEvent):
 # Task Events
 # ---------------------------------------------------------------------------
 
+
 class TaskClaimEvent(BaseEvent):
     """Emitted when an agent claims a backlog task."""
 
@@ -189,6 +194,7 @@ class TaskCompleteEvent(BaseEvent):
 # Agent Memory Events
 # ---------------------------------------------------------------------------
 
+
 class ScratchpadUpdateEvent(BaseEvent):
     """Emitted when an agent updates their scratchpad."""
 
@@ -200,6 +206,7 @@ class ScratchpadUpdateEvent(BaseEvent):
 # ---------------------------------------------------------------------------
 # Access Control Events
 # ---------------------------------------------------------------------------
+
 
 class AccessRequestEvent(BaseEvent):
     """Emitted when an agent requests access to a tool."""
@@ -222,6 +229,7 @@ class TierViolationEvent(BaseEvent):
 # Tool Usage Events
 # ---------------------------------------------------------------------------
 
+
 class ToolCallEvent(BaseEvent):
     """Emitted when an agent calls a tool."""
 
@@ -237,29 +245,27 @@ class ToolCallEvent(BaseEvent):
 # ---------------------------------------------------------------------------
 
 Event = Annotated[
-    Union[
-        ExperimentStartEvent,
-        ExperimentEndEvent,
-        SprintStartEvent,
-        SprintEndEvent,
-        PhaseStartEvent,
-        PhaseEndEvent,
-        CommitEvent,
-        FileReadEvent,
-        FileWriteEvent,
-        PROpenEvent,
-        PRReviewEvent,
-        PRCommentEvent,
-        PRMergeEvent,
-        MessageEvent,
-        MeetingStatementEvent,
-        TaskClaimEvent,
-        TaskCompleteEvent,
-        ScratchpadUpdateEvent,
-        AccessRequestEvent,
-        TierViolationEvent,
-        ToolCallEvent,
-    ],
+    ExperimentStartEvent
+    | ExperimentEndEvent
+    | SprintStartEvent
+    | SprintEndEvent
+    | PhaseStartEvent
+    | PhaseEndEvent
+    | CommitEvent
+    | FileReadEvent
+    | FileWriteEvent
+    | PROpenEvent
+    | PRReviewEvent
+    | PRCommentEvent
+    | PRMergeEvent
+    | MessageEvent
+    | MeetingStatementEvent
+    | TaskClaimEvent
+    | TaskCompleteEvent
+    | ScratchpadUpdateEvent
+    | AccessRequestEvent
+    | TierViolationEvent
+    | ToolCallEvent,
     Field(discriminator="event_type"),
 ]
 

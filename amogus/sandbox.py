@@ -7,7 +7,7 @@ reads, and direct ``.git`` manipulation.
 
 from __future__ import annotations
 
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 
 from amogus.exceptions import SandboxViolation
 
@@ -36,8 +36,8 @@ def validate_path(agent_name: str, path: str, workspace: Path) -> Path:
     # Rule 1+2: path must stay within the workspace
     try:
         resolved.relative_to(resolved_workspace)
-    except ValueError:
-        raise SandboxViolation(f"Path escapes workspace: {path}")
+    except ValueError as exc:
+        raise SandboxViolation(f"Path escapes workspace: {path}") from exc
 
     # Compute relative parts for component-level checks
     rel = resolved.relative_to(resolved_workspace)
@@ -48,9 +48,7 @@ def validate_path(agent_name: str, path: str, workspace: Path) -> Path:
         if part == "scratchpads" and i + 1 < len(parts):
             owner = parts[i + 1]
             if owner != agent_name:
-                raise SandboxViolation(
-                    "Cannot access another agent's scratchpad"
-                )
+                raise SandboxViolation("Cannot access another agent's scratchpad")
             break  # found the relevant scratchpads segment, no need to continue
 
     # Rule 4: no direct .git access

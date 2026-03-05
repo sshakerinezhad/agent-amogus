@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -36,7 +36,7 @@ class Checkpoint(BaseModel):
     token_usage: dict[str, dict[str, Any]]  # agent_name -> TokenUsage as dict
     pr_state: list[dict[str, Any]]  # serialized PullRequests
     timestamp: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc),
+        default_factory=lambda: datetime.now(UTC),
     )
 
 
@@ -113,8 +113,7 @@ def capture_state(orchestrator: Orchestrator) -> Checkpoint:
 
     # PR state
     pr_state: list[dict[str, Any]] = [
-        pr.model_dump(mode="json")
-        for pr in orchestrator.pr_tracker._prs.values()
+        pr.model_dump(mode="json") for pr in orchestrator.pr_tracker._prs.values()
     ]
 
     return Checkpoint(
@@ -166,21 +165,16 @@ def verify_git_state(run_dir: Path, checkpoint: Checkpoint) -> None:
             actual_sha = str(repo.commit(branch_name).hexsha)
         except Exception:
             # Branch may not exist locally — treat as diverged.
-            diverged.append(
-                f"  {branch_name}: expected {expected_sha[:8]}, branch not found"
-            )
+            diverged.append(f"  {branch_name}: expected {expected_sha[:8]}, branch not found")
             continue
 
         if actual_sha != expected_sha:
-            diverged.append(
-                f"  {branch_name}: expected {expected_sha[:8]}, got {actual_sha[:8]}"
-            )
+            diverged.append(f"  {branch_name}: expected {expected_sha[:8]}, got {actual_sha[:8]}")
 
     if diverged:
         details = "\n".join(diverged)
         raise ConfigError(
-            "Git state has diverged from checkpoint. Mismatched branches:\n"
-            f"{details}"
+            f"Git state has diverged from checkpoint. Mismatched branches:\n{details}"
         )
 
 
@@ -203,12 +197,8 @@ def restore_agent_state(agent: Agent, checkpoint: Checkpoint) -> None:
     # Restore scratchpad content
     if name in checkpoint.scratchpads:
         agent.scratchpad_path.parent.mkdir(parents=True, exist_ok=True)
-        agent.scratchpad_path.write_text(
-            checkpoint.scratchpads[name], encoding="utf-8"
-        )
+        agent.scratchpad_path.write_text(checkpoint.scratchpads[name], encoding="utf-8")
 
     # Restore token usage
     if name in checkpoint.token_usage:
-        agent.token_usage = TokenUsage.model_validate(
-            checkpoint.token_usage[name]
-        )
+        agent.token_usage = TokenUsage.model_validate(checkpoint.token_usage[name])

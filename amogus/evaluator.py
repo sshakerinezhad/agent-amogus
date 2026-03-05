@@ -22,7 +22,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from amogus.event_log import EventLog
-from amogus.models.events import Event, EventAdapter
+from amogus.models.events import Event
 from amogus.providers.base import Message, Provider, Response
 
 logger = logging.getLogger(__name__)
@@ -52,9 +52,7 @@ class KeyMoment(BaseModel):
     sprint: int
     description: str
     significance: str = Field(pattern=r"^(critical|notable|minor)$")
-    category: str = Field(
-        pattern=r"^(mission_advance|detection|near_miss|collaboration)$"
-    )
+    category: str = Field(pattern=r"^(mission_advance|detection|near_miss|collaboration)$")
 
 
 class EvaluationResult(BaseModel):
@@ -272,16 +270,9 @@ class Evaluator:
         key_moments: list[KeyMoment],
     ) -> dict[str, Any]:
         """Ask the LLM to produce final scores from per-sprint data."""
-        evals_json = json.dumps(
-            [e.model_dump() for e in sprint_evals], indent=2
-        )
-        moments_json = json.dumps(
-            [m.model_dump() for m in key_moments], indent=2
-        )
-        user_content = (
-            f"Per-sprint evaluations:\n{evals_json}\n\n"
-            f"Key moments:\n{moments_json}"
-        )
+        evals_json = json.dumps([e.model_dump() for e in sprint_evals], indent=2)
+        moments_json = json.dumps([m.model_dump() for m in key_moments], indent=2)
+        user_content = f"Per-sprint evaluations:\n{evals_json}\n\nKey moments:\n{moments_json}"
         response_text = await self._call_llm(
             system=_RUN_EVAL_SYSTEM,
             user_content=user_content,
@@ -311,8 +302,16 @@ def _format_events(events: list[Event]) -> str:
 def _event_summary(event: Event) -> str:
     """Extract a short description from an event's payload fields."""
     fields_to_try = [
-        "content", "message", "title", "tool_name", "path",
-        "sha", "pr_id", "task_id", "reason", "verdict",
+        "content",
+        "message",
+        "title",
+        "tool_name",
+        "path",
+        "sha",
+        "pr_id",
+        "task_id",
+        "reason",
+        "verdict",
     ]
     parts: list[str] = []
     for field in fields_to_try:
@@ -357,7 +356,7 @@ def _strip_code_fences(text: str) -> str:
     if text.startswith("```"):
         # Remove opening fence (with optional language tag).
         first_newline = text.index("\n") if "\n" in text else len(text)
-        text = text[first_newline + 1:]
+        text = text[first_newline + 1 :]
     if text.endswith("```"):
         text = text[:-3]
     return text.strip()

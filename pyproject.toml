@@ -45,9 +45,15 @@ select = [
     "UP",  # pyupgrade
     "B",   # flake8-bugbear
     "SIM", # flake8-simplify
-    "TCH", # flake8-type-checking
     "RUF", # ruff-specific rules
 ]
+# TCH (flake8-type-checking) is intentionally excluded — Pydantic v2 needs
+# type imports at runtime for model field validation, not just in
+# TYPE_CHECKING blocks.
+
+[tool.ruff.lint.per-file-ignores]
+# Typer uses typer.Option/Argument in function defaults as idiomatic pattern.
+"amogus/cli.py" = ["B008"]
 
 [tool.pyright]
 pythonVersion = "3.11"

@@ -14,14 +14,12 @@ Once Phase 2 is complete, replace stubs with real imports:
 
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 import git
 import pytest
-
 
 # ---------------------------------------------------------------------------
 # MockProvider — mimics Provider ABC interface (T010: amogus/providers/base.py)

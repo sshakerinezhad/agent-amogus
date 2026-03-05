@@ -17,10 +17,10 @@ from amogus.providers.base import (
     Message,
     Provider,
     Response,
+    TokenUsage,
     ToolCall,
     ToolDefinition,
     ToolResult,
-    TokenUsage,
 )
 
 # Status codes that trigger automatic retry.
@@ -82,9 +82,7 @@ class AnthropicProvider(Provider):
         raw = await self._call_with_retry(**kwargs)
         return _normalize_response(raw)
 
-    def format_tool_results(
-        self, response: Response, results: list[ToolResult]
-    ) -> list[Message]:
+    def format_tool_results(self, response: Response, results: list[ToolResult]) -> list[Message]:
         """Create the assistant + user(tool_result) message pair for the next turn.
 
         Anthropic expects:
@@ -152,11 +150,7 @@ class AnthropicProvider(Provider):
                 await asyncio.sleep(delay)
 
         # All retries exhausted.
-        status = (
-            last_exc.status_code
-            if isinstance(last_exc, anthropic.APIStatusError)
-            else None
-        )
+        status = last_exc.status_code if isinstance(last_exc, anthropic.APIStatusError) else None
         raise ProviderError(
             f"Anthropic API call failed after {_MAX_RETRIES} retries: {last_exc}",
             model=self._model,

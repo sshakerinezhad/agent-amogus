@@ -114,15 +114,9 @@ class Dashboard:
         # Mutable state
         self._current_sprint: int = 0
         self._current_phase: str = "setup"
-        self._agent_statuses: dict[str, str] = {
-            a.name: "idle" for a in agent_configs
-        }
-        self._agent_actions: dict[str, str] = {
-            a.name: "-" for a in agent_configs
-        }
-        self._agent_tokens: dict[str, int] = {
-            a.name: 0 for a in agent_configs
-        }
+        self._agent_statuses: dict[str, str] = {a.name: "idle" for a in agent_configs}
+        self._agent_actions: dict[str, str] = {a.name: "-" for a in agent_configs}
+        self._agent_tokens: dict[str, int] = {a.name: 0 for a in agent_configs}
         self._recent_events: list[tuple[str, str, str]] = []  # (type, agent, summary)
         self._mission_milestones: dict[str, list[tuple[str, bool]]] = {}
         self._scratchpad_excerpts: dict[str, str] = {}
@@ -270,9 +264,7 @@ class Dashboard:
         parts: list[Any] = []
 
         if not self._adversarial_agents:
-            parts.append(
-                Text("  NO ADVERSARIAL AGENTS IN THIS OPERATION", style="dim red")
-            )
+            parts.append(Text("  NO ADVERSARIAL AGENTS IN THIS OPERATION", style="dim red"))
         else:
             for agent_name in sorted(self._adversarial_agents):
                 parts.append(Text(f"  OPERATIVE: {agent_name}", style="bold red"))
@@ -288,9 +280,7 @@ class Dashboard:
                         ms_text.append(f"    {marker} {label}\n", style=style)
                     parts.append(ms_text)
                 else:
-                    parts.append(
-                        Text("  MILESTONES: awaiting briefing", style="dim red")
-                    )
+                    parts.append(Text("  MILESTONES: awaiting briefing", style="dim red"))
 
                 # Scratchpad excerpt
                 excerpt = self._scratchpad_excerpts.get(agent_name, "")
@@ -313,8 +303,7 @@ class Dashboard:
                 st = entry["stealth_score"]
                 det = entry["detection_events"]
                 score_line = Text(
-                    f"    S{s}: mission={mp} codebase={cp} "
-                    f"stealth={st} detections={det}\n",
+                    f"    S{s}: mission={mp} codebase={cp} stealth={st} detections={det}\n",
                     style="dim white",
                 )
                 parts.append(score_line)
@@ -394,9 +383,7 @@ class Dashboard:
 
         elif isinstance(event, PRReviewEvent):
             self._set_agent(agent, "reviewing", f"PR#{event.pr_id}")
-            self._add_feed(
-                "pr_review", agent, f"Reviewed PR#{event.pr_id}: {event.verdict}"
-            )
+            self._add_feed("pr_review", agent, f"Reviewed PR#{event.pr_id}: {event.verdict}")
 
         elif isinstance(event, PRCommentEvent):
             self._add_feed("pr_comment", agent, f"Comment on PR#{event.pr_id}")
@@ -467,9 +454,7 @@ class Dashboard:
     # Mission milestone management (called externally)
     # ------------------------------------------------------------------
 
-    def set_milestones(
-        self, agent_name: str, milestones: list[tuple[str, bool]]
-    ) -> None:
+    def set_milestones(self, agent_name: str, milestones: list[tuple[str, bool]]) -> None:
         """Set the milestone checklist for an adversarial agent."""
         self._mission_milestones[agent_name] = milestones
 
@@ -486,13 +471,15 @@ class Dashboard:
         detection_events: int,
     ) -> None:
         """Record evaluation scores for a sprint and refresh display."""
-        self._evaluation_scores.append({
-            "sprint": sprint,
-            "mission_progress": mission_progress,
-            "codebase_progress": codebase_progress,
-            "stealth_score": stealth_score,
-            "detection_events": detection_events,
-        })
+        self._evaluation_scores.append(
+            {
+                "sprint": sprint,
+                "mission_progress": mission_progress,
+                "codebase_progress": codebase_progress,
+                "stealth_score": stealth_score,
+                "detection_events": detection_events,
+            }
+        )
         if self._live is not None:
             self._live.update(self._build_layout())
 

@@ -230,8 +230,7 @@ class Orchestrator:
                 sprint_events = await self.event_log.read_filtered(sprint=n)
                 evaluation = await self.evaluator.evaluate_sprint(sprint_events)
                 logger.info(
-                    "Sprint %d evaluation: mission=%d codebase=%d stealth=%d "
-                    "detections=%d — %s",
+                    "Sprint %d evaluation: mission=%d codebase=%d stealth=%d detections=%d — %s",
                     n,
                     evaluation.mission_progress,
                     evaluation.codebase_progress,
@@ -248,9 +247,7 @@ class Orchestrator:
                         detection_events=evaluation.detection_events,
                     )
             except Exception as exc:
-                logger.warning(
-                    "Evaluation failed for sprint %d: %s", n, exc
-                )
+                logger.warning("Evaluation failed for sprint %d: %s", n, exc)
 
         await self._emit(
             SprintEndEvent(
@@ -271,9 +268,7 @@ class Orchestrator:
         Each agent speaks in turn for ``config.pacing.planning_rounds`` rounds.
         A running transcript is maintained so later speakers see earlier statements.
         """
-        await self._emit(
-            PhaseStartEvent(sprint=sprint, phase="planning")
-        )
+        await self._emit(PhaseStartEvent(sprint=sprint, phase="planning"))
 
         transcript_lines: list[str] = []
         num_rounds = self.config.pacing.planning_rounds
@@ -308,23 +303,17 @@ class Orchestrator:
                     )
                 )
 
-        await self._emit(
-            PhaseEndEvent(sprint=sprint, phase="planning")
-        )
+        await self._emit(PhaseEndEvent(sprint=sprint, phase="planning"))
 
     async def work_phase(self, sprint: int) -> None:
         """Parallel agent work via asyncio.TaskGroup.
 
         Each agent gets a ToolContext and runs ``safe_agent_turn`` concurrently.
         """
-        await self._emit(
-            PhaseStartEvent(sprint=sprint, phase="work")
-        )
+        await self._emit(PhaseStartEvent(sprint=sprint, phase="work"))
 
         # Build context and collect prompts for each agent
         backlog_context = self.backlog.to_context_string()
-
-        results: list[AgentResult] = []
 
         async with asyncio.TaskGroup() as tg:
             for agent in self.agents:
@@ -354,22 +343,16 @@ class Orchestrator:
                     f"## Backlog\n{backlog_context}"
                 )
 
-                async def _run_agent(
-                    a: Agent, p: str, tc: ToolContext
-                ) -> AgentResult:
+                async def _run_agent(a: Agent, p: str, tc: ToolContext) -> AgentResult:
                     return await a.safe_agent_turn(p, tc)
 
                 tg.create_task(_run_agent(agent, prompt, tool_context))
 
-        await self._emit(
-            PhaseEndEvent(sprint=sprint, phase="work")
-        )
+        await self._emit(PhaseEndEvent(sprint=sprint, phase="work"))
 
     async def review_phase(self, sprint: int) -> None:
         """Collect open PRs, assign reviewers, and merge approved ones."""
-        await self._emit(
-            PhaseStartEvent(sprint=sprint, phase="review")
-        )
+        await self._emit(PhaseStartEvent(sprint=sprint, phase="review"))
 
         open_prs = self.pr_tracker.list_open_prs()
 
@@ -390,9 +373,7 @@ class Orchestrator:
             )
 
             for reviewer_name in reviewers:
-                reviewer_agent = next(
-                    a for a in self.agents if a.config.name == reviewer_name
-                )
+                reviewer_agent = next(a for a in self.agents if a.config.name == reviewer_name)
                 context = (
                     f"Sprint {sprint} | Code Review\n\n"
                     f"PR {pr.id}: {pr.title}\n"
@@ -404,7 +385,8 @@ class Orchestrator:
                 )
 
                 review_text = await reviewer_agent.speak(
-                    system=system_prompt, context=context,
+                    system=system_prompt,
+                    context=context,
                 )
 
                 # Parse verdict from response — simple heuristic
@@ -426,9 +408,7 @@ class Orchestrator:
             approvals = [r for r in pr.reviews if r.verdict == "approve"]
             if approvals and self._repo is not None:
                 try:
-                    merge_sha = await self.pr_tracker.merge_pr(
-                        pr.id, self._repo
-                    )
+                    merge_sha = await self.pr_tracker.merge_pr(pr.id, self._repo)
                     await self._emit(
                         PRMergeEvent(
                             sprint=sprint,
@@ -438,22 +418,16 @@ class Orchestrator:
                         )
                     )
                 except Exception as exc:
-                    logger.warning(
-                        "Failed to merge %s: %s", pr.id, exc
-                    )
+                    logger.warning("Failed to merge %s: %s", pr.id, exc)
 
-        await self._emit(
-            PhaseEndEvent(sprint=sprint, phase="review")
-        )
+        await self._emit(PhaseEndEvent(sprint=sprint, phase="review"))
 
     async def retro_phase(self, sprint: int) -> None:
         """Sequential round-robin retrospective meeting.
 
         Each agent speaks in turn for ``config.pacing.retro_rounds`` rounds.
         """
-        await self._emit(
-            PhaseStartEvent(sprint=sprint, phase="retro")
-        )
+        await self._emit(PhaseStartEvent(sprint=sprint, phase="retro"))
 
         transcript_lines: list[str] = []
         num_rounds = self.config.pacing.retro_rounds
@@ -489,6 +463,4 @@ class Orchestrator:
                     )
                 )
 
-        await self._emit(
-            PhaseEndEvent(sprint=sprint, phase="retro")
-        )
+        await self._emit(PhaseEndEvent(sprint=sprint, phase="retro"))

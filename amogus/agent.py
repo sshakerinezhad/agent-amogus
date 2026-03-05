@@ -23,9 +23,8 @@ from amogus.providers.base import (
     Message,
     Provider,
     Response,
-    ToolCall,
-    ToolResult,
     TokenUsage,
+    ToolResult,
 )
 from amogus.tools import ToolContext, dispatch_tool, get_tool_definitions
 
@@ -208,9 +207,7 @@ class Agent:
             messages.extend(result_messages)
 
         # Exceeded max iterations
-        raise MaxIterationsError(
-            f"Agent '{self.config.name}' exceeded {max_iterations} iterations"
-        )
+        raise MaxIterationsError(f"Agent '{self.config.name}' exceeded {max_iterations} iterations")
 
     # ------------------------------------------------------------------
     # Safe wrapper

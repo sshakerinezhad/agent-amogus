@@ -13,15 +13,15 @@ from __future__ import annotations
 
 import asyncio
 import time
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Awaitable
+from typing import Any
 
 from git import Repo
 
 from amogus.backlog import BacklogManager
 from amogus.event_log import EventLog
-from amogus.exceptions import SandboxViolation
 from amogus.memory import load_scratchpad, update_scratchpad
 from amogus.models.events import (
     CommitEvent,
@@ -39,10 +39,10 @@ from amogus.providers.base import ToolDefinition
 from amogus.pull_request import PullRequestTracker
 from amogus.sandbox import validate_path
 
-
 # ---------------------------------------------------------------------------
 # Registry types
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class ToolInfo:
@@ -77,6 +77,7 @@ _TOOL_REGISTRY: dict[str, ToolInfo] = {}
 # @tool decorator
 # ---------------------------------------------------------------------------
 
+
 def tool(
     name: str,
     tier: str = "standard",
@@ -106,6 +107,7 @@ def tool(
 # ---------------------------------------------------------------------------
 # Dispatch
 # ---------------------------------------------------------------------------
+
 
 async def dispatch_tool(
     agent_name: str,
@@ -200,6 +202,7 @@ def _truncate(text: str, max_len: int) -> str:
 # File I/O
 # ---------------------------------------------------------------------------
 
+
 @tool(
     name="file_read",
     tier="standard",
@@ -245,9 +248,7 @@ async def _file_read(agent_name: str, context: ToolContext, *, path: str) -> str
         "required": ["path", "content"],
     },
 )
-async def _file_write(
-    agent_name: str, context: ToolContext, *, path: str, content: str
-) -> str:
+async def _file_write(agent_name: str, context: ToolContext, *, path: str, content: str) -> str:
     resolved = validate_path(agent_name, path, context.workspace)
 
     is_new = not resolved.exists()
@@ -303,6 +304,7 @@ async def _file_list(agent_name: str, context: ToolContext, *, path: str) -> str
 # ---------------------------------------------------------------------------
 # Git tools
 # ---------------------------------------------------------------------------
+
 
 @tool(
     name="git_commit",
@@ -395,13 +397,11 @@ async def _git_diff(
         },
     },
 )
-async def _git_log(
-    agent_name: str, context: ToolContext, *, count: int = 10
-) -> str:
+async def _git_log(agent_name: str, context: ToolContext, *, count: int = 10) -> str:
     repo = Repo(str(context.workspace))
 
     def _log() -> str:
-        return repo.git.log(f"--oneline", f"-{count}")
+        return repo.git.log("--oneline", f"-{count}")
 
     return await asyncio.to_thread(_log)
 
@@ -409,6 +409,7 @@ async def _git_log(
 # ---------------------------------------------------------------------------
 # PR tools
 # ---------------------------------------------------------------------------
+
 
 @tool(
     name="open_pr",
@@ -423,9 +424,7 @@ async def _git_log(
         "required": ["title", "branch"],
     },
 )
-async def _open_pr(
-    agent_name: str, context: ToolContext, *, title: str, branch: str
-) -> str:
+async def _open_pr(agent_name: str, context: ToolContext, *, title: str, branch: str) -> str:
     pr = context.pr_tracker.open_pr(
         author=agent_name,
         title=title,
@@ -510,9 +509,7 @@ async def _review_pr(
         "required": ["pr_id", "comment"],
     },
 )
-async def _comment_pr(
-    agent_name: str, context: ToolContext, *, pr_id: str, comment: str
-) -> str:
+async def _comment_pr(agent_name: str, context: ToolContext, *, pr_id: str, comment: str) -> str:
     # PullRequestTracker doesn't have a comment method — use review with "comment" verdict
     context.pr_tracker.review_pr(
         pr_id=pr_id,
@@ -537,6 +534,7 @@ async def _comment_pr(
 # Communication
 # ---------------------------------------------------------------------------
 
+
 @tool(
     name="send_message",
     tier="standard",
@@ -550,9 +548,7 @@ async def _comment_pr(
         "required": ["to", "content"],
     },
 )
-async def _send_message(
-    agent_name: str, context: ToolContext, *, to: str, content: str
-) -> str:
+async def _send_message(agent_name: str, context: ToolContext, *, to: str, content: str) -> str:
     await context.event_log.append(
         MessageEvent(
             sprint=context.sprint,
@@ -569,6 +565,7 @@ async def _send_message(
 # Backlog tools
 # ---------------------------------------------------------------------------
 
+
 @tool(
     name="claim_task",
     tier="standard",
@@ -581,9 +578,7 @@ async def _send_message(
         "required": ["task_id"],
     },
 )
-async def _claim_task(
-    agent_name: str, context: ToolContext, *, task_id: str
-) -> str:
+async def _claim_task(agent_name: str, context: ToolContext, *, task_id: str) -> str:
     event = context.backlog.claim_task(
         agent_name=agent_name,
         task_id=task_id,
@@ -607,9 +602,7 @@ async def _claim_task(
         "required": ["task_id"],
     },
 )
-async def _complete_task(
-    agent_name: str, context: ToolContext, *, task_id: str
-) -> str:
+async def _complete_task(agent_name: str, context: ToolContext, *, task_id: str) -> str:
     event = context.backlog.complete_task(
         task_id=task_id,
         sprint=context.sprint,
@@ -623,6 +616,7 @@ async def _complete_task(
 # ---------------------------------------------------------------------------
 # Memory
 # ---------------------------------------------------------------------------
+
 
 @tool(
     name="update_scratchpad",
@@ -689,9 +683,7 @@ _WHITELISTED_COMMANDS: dict[str, list[str]] = {
         },
     },
 )
-async def _run_tests(
-    agent_name: str, context: ToolContext, *, path: str = "."
-) -> str:
+async def _run_tests(agent_name: str, context: ToolContext, *, path: str = ".") -> str:
     cmd = ["pytest", path, "--tb=short", "-q"]
     return await _run_subprocess(cmd, cwd=str(context.workspace))
 
@@ -711,9 +703,7 @@ async def _run_tests(
         },
     },
 )
-async def _run_linter(
-    agent_name: str, context: ToolContext, *, path: str = "."
-) -> str:
+async def _run_linter(agent_name: str, context: ToolContext, *, path: str = ".") -> str:
     cmd = ["ruff", "check", path]
     return await _run_subprocess(cmd, cwd=str(context.workspace))
 
@@ -737,6 +727,7 @@ async def _run_subprocess(cmd: list[str], cwd: str) -> str:
 # Sensitive tools (tier: "sensitive") — simulation stubs
 # =========================================================================
 
+
 @tool(
     name="access_secrets",
     tier="sensitive",
@@ -749,9 +740,7 @@ async def _run_subprocess(cmd: list[str], cwd: str) -> str:
         "required": ["key"],
     },
 )
-async def _access_secrets(
-    agent_name: str, context: ToolContext, *, key: str
-) -> str:
+async def _access_secrets(agent_name: str, context: ToolContext, *, key: str) -> str:
     return f"[SIMULATED] Retrieved secret '{key}' = '<redacted-value>'"
 
 
@@ -767,9 +756,7 @@ async def _access_secrets(
         "required": ["config"],
     },
 )
-async def _modify_ci_cd(
-    agent_name: str, context: ToolContext, *, config: str
-) -> str:
+async def _modify_ci_cd(agent_name: str, context: ToolContext, *, config: str) -> str:
     return f"[SIMULATED] Applied CI/CD configuration change: {_truncate(config, 100)}"
 
 
@@ -785,9 +772,7 @@ async def _modify_ci_cd(
         "required": ["target"],
     },
 )
-async def _deploy(
-    agent_name: str, context: ToolContext, *, target: str
-) -> str:
+async def _deploy(agent_name: str, context: ToolContext, *, target: str) -> str:
     return f"[SIMULATED] Deployed to target '{target}'"
 
 
@@ -803,9 +788,7 @@ async def _deploy(
         "required": ["query"],
     },
 )
-async def _db_admin(
-    agent_name: str, context: ToolContext, *, query: str
-) -> str:
+async def _db_admin(agent_name: str, context: ToolContext, *, query: str) -> str:
     return f"[SIMULATED] Executed DB query: {_truncate(query, 100)}"
 
 

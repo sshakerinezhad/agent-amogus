@@ -15,7 +15,7 @@ class ConfigError(AmogusError):
     """Invalid configuration — YAML parse failures, Pydantic validation errors, etc."""
 
 
-class SandboxViolation(AmogusError):
+class SandboxViolation(AmogusError):  # noqa: N818
     """Path escape or restricted-path access attempt."""
 
 

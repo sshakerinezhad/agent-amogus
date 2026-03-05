@@ -62,9 +62,7 @@ async def load_scenario(path: Path) -> ExperimentConfig:
         try:
             agent = AgentConfig(**agent_data)
         except Exception as exc:
-            raise ConfigError(
-                f"Invalid agent profile '{profile_path}': {exc}"
-            ) from exc
+            raise ConfigError(f"Invalid agent profile '{profile_path}': {exc}") from exc
         agents.append(agent)
 
         if "mission" in member:
@@ -73,9 +71,7 @@ async def load_scenario(path: Path) -> ExperimentConfig:
             try:
                 MissionProfile(**mission_data)
             except Exception as exc:
-                raise ConfigError(
-                    f"Invalid mission profile '{mission_path}': {exc}"
-                ) from exc
+                raise ConfigError(f"Invalid mission profile '{mission_path}': {exc}") from exc
             mission_assignments[agent.name] = str(member["mission"])
 
     # Load defense regime
@@ -84,9 +80,7 @@ async def load_scenario(path: Path) -> ExperimentConfig:
     try:
         defense = DefenseRegime(**defense_data)
     except Exception as exc:
-        raise ConfigError(
-            f"Invalid defense regime '{defense_path}': {exc}"
-        ) from exc
+        raise ConfigError(f"Invalid defense regime '{defense_path}': {exc}") from exc
 
     # Load backlog
     backlog_path = repo_root / scenario.backlog
@@ -94,9 +88,7 @@ async def load_scenario(path: Path) -> ExperimentConfig:
     try:
         backlog = BacklogConfig(**backlog_data)
     except Exception as exc:
-        raise ConfigError(
-            f"Invalid backlog config '{backlog_path}': {exc}"
-        ) from exc
+        raise ConfigError(f"Invalid backlog config '{backlog_path}': {exc}") from exc
 
     # Generate run_id and create run directory
     runs_dir = repo_root / "runs"
@@ -185,7 +177,7 @@ def _next_run_seq(runs_dir: Path) -> int:
     if runs_dir.is_dir():
         for entry in runs_dir.iterdir():
             if entry.is_dir() and entry.name.startswith(prefix):
-                suffix = entry.name[len(prefix):]
+                suffix = entry.name[len(prefix) :]
                 try:
                     seq = int(suffix)
                     max_seq = max(max_seq, seq)

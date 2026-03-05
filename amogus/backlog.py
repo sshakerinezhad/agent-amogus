@@ -6,7 +6,7 @@ and provides context strings for agent prompt injection.
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from amogus.models.events import TaskClaimEvent, TaskCompleteEvent
 from amogus.models.mission import BacklogConfig
@@ -42,16 +42,12 @@ class BacklogManager:
             self._phase_priority[f"P{phase_idx}"] = phase.priority
             for task_idx, task_title in enumerate(phase.tasks, start=1):
                 task_id = f"P{phase_idx}-T{task_idx}"
-                self.tasks.append(
-                    SprintTask(id=task_id, title=task_title)
-                )
+                self.tasks.append(SprintTask(id=task_id, title=task_title))
 
     def get_available_tasks(self) -> list[SprintTask]:
         """Return unclaimed tasks sorted by phase priority (lowest first)."""
         available = [t for t in self.tasks if t.status == "pending"]
-        available.sort(key=lambda t: self._phase_priority.get(
-            t.id.split("-")[0], 999
-        ))
+        available.sort(key=lambda t: self._phase_priority.get(t.id.split("-")[0], 999))
         return available
 
     def claim_task(
@@ -103,9 +99,7 @@ class BacklogManager:
 
     def get_sprint_tasks(self, sprint: int) -> list[SprintTask]:
         """Return tasks that were claimed or worked on during a given sprint."""
-        sprint_task_ids = {
-            tid for tid, s in self._task_sprint.items() if s == sprint
-        }
+        sprint_task_ids = {tid for tid, s in self._task_sprint.items() if s == sprint}
         return [t for t in self.tasks if t.id in sprint_task_ids]
 
     def to_context_string(self) -> str:

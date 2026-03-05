@@ -159,7 +159,7 @@
 
 **Purpose**: Quality improvements that affect multiple user stories
 
-- [ ] T043 Run ruff check and fix across all source files in `amogus/` and `tests/`
+- [x] T043 Run ruff check and fix across all source files in `amogus/` and `tests/`
 - [ ] T044 Verify pyright type checking passes with zero errors across `amogus/`
 - [ ] T045 Security audit — verify API keys never appear in event logs or scratchpads, sandbox blocks all path escapes, scratchpad isolation prevents cross-agent reads
 
