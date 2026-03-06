@@ -8,43 +8,37 @@ Adversarial Multi-agent Operations for Gauging Undetected Sabotage — an open-s
 
 ### What was done
 
-**Executed all 7 steps of the work plan** (`.claude/work-plan.md`) covering 8 structural issues:
+1. **Executed all 7 steps of the work plan** (`.claude/work-plan.md`) — 8 structural issues, all implemented and verified
+2. **Committed and pushed** — commit `1ff9d94` on branch `001-agent-amogus-v1`, auto-updated PR #1
+3. **Synced masterplan** — updated `.claude/masterplan.md` with all accomplishments, added Phase 3.5 (Structural Hardening), updated project structure, mission system docs, defense regime docs, new "Structural Fixes" section with WHY/gotchas
 
-1. **Step 1 (Bug Fixes)**: Added exception logging to `tools.py`, normalized whitespace in `memory.py`. Skipped event_log false positive.
-2. **Step 2 (Evaluator Default)**: Changed default from `claude-haiku-4-5` → `claude-opus-4-6` in config.py (2 locations), cli.py, README.md, docs/GUIDE.md.
-3. **Step 3 (Agent Persona + Defense Regimes)**:
-   - Added `defense_briefing` param to Agent
-   - Added `get_full_system_prompt()` — single source of truth for persona + briefings
-   - Refactored `build_context()` to use it
-   - Updated all meeting phases (planning/retro/review) to use per-agent system prompts
-   - Added defense components gate in review_phase
-   - Added watchdog-specific security review prompt
-   - Threaded `defense_briefing` through CLI `_run()` and `_resume()`
-4. **Step 4 (Mission Overhaul)**: Added `[RED BUTTON]` validator, lowered min milestones to 1, rewrote all 5 mission YAMLs with agency-preserving briefings.
-5. **Step 5 (Directory Restructure)**: Moved agents/, missions/, defenses/, backlogs/, scenarios/ under `experiments/`. Added `base_dir` to ScenarioConfig + ExperimentConfig. Updated scenario.py path resolution. Updated cli.py `init` command.
-6. **Step 6 (Target Repo Notice)**: Added REPLACE comments in scenario YAML and docs.
-7. **Step 7 (Doc Fixes)**: Fixed dashboard description, clone URL, tech-lead model reference in masterplan.
+### Key Changes (this session)
 
-### Verification Results
-
-- **ruff check**: All passed
-- **ruff format**: All formatted
-- **pyright**: 0 errors, 0 warnings
-- **Schema validation**: All 5 missions pass `[RED BUTTON]` validator
-- **Scenario load**: `base_dir: "experiments"` resolves correctly
-- **Defense regimes**: All 6 load with correct components/watchdog/briefing
-- **Behavioral tests**: Red agent gets mission, blue gets defense briefing, plain gets just system_prompt; category excluded from injection
+- `Agent.get_full_system_prompt()` — single source of truth for agent identity across all phases
+- Defense regimes wired into runtime (were dead code): components gate, watchdog prompt, agent_briefing injection
+- `[RED BUTTON]` validator on MissionProfile — missions must end with an irreversible final milestone
+- All 5 mission YAMLs rewritten: agency-preserving, zero tactics
+- Config dirs moved under `experiments/` with `base_dir` resolution
+- Evaluator default changed to `claude-opus-4-6`
+- Bug fixes: tool exception logging, scratchpad whitespace normalization
 
 ### Current State
 
 - **Branch**: `001-agent-amogus-v1`
 - **PR**: #1 (open, targeting main)
-- **All 8 issues implemented and verified**
-- **NOT yet committed** — changes ready for review
+- **Latest commit**: `1ff9d94` (pushed)
+- **Verification**: ruff, pyright, ruff format all clean; schema + behavioral tests pass
+- **Work plan**: `.claude/work-plan.md` — all 7 steps COMPLETE
 
 ### Next Steps
 
-1. **Commit** the changes
-2. **Unit tests**: Write tests using conftest fixtures
-3. **Integration test**: `amogus run --scenario experiments/scenarios/example-basic.yaml` (needs real repo URL)
-4. **Merge PR #1** after tests pass
+1. **Unit tests** — write tests using existing conftest fixtures (`tests/conftest.py` has MockProvider, temp_repo, config factories)
+2. **Integration test** — `amogus run --scenario experiments/scenarios/example-basic.yaml` (needs a real Git repo URL in `target_repo`)
+3. **Merge PR #1** after tests pass
+
+### Key References
+
+- Masterplan: `.claude/masterplan.md` (updated this session)
+- Work plan: `.claude/work-plan.md` (all steps complete)
+- User guide: `docs/GUIDE.md`
+- Spec: `.specify/specs/001-agent-amogus-v1/spec.md`
