@@ -4,56 +4,41 @@
 
 Adversarial Multi-agent Operations for Gauging Undetected Sabotage — an open-source Python framework for running long-horizon adversarial experiments on real codebases with autonomous coding agent teams.
 
-## Session Summary (2026-03-04, session 4)
+## Session Summary (2026-03-06, session 12)
 
 ### What was done
 
-1. **`/speckit.plan` completed** — Full implementation plan designed with research, data models, contracts, and quickstart guide
-2. **3 parallel research agents dispatched** — Provider abstractions, async orchestration patterns, GitPython patterns
-3. **10 technical unknowns resolved** in research.md
+1. **Executed all 7 steps of the work plan** (`.claude/work-plan.md`) — 8 structural issues, all implemented and verified
+2. **Committed and pushed** — commit `1ff9d94` on branch `001-agent-amogus-v1`, auto-updated PR #1
+3. **Synced masterplan** — updated `.claude/masterplan.md` with all accomplishments, added Phase 3.5 (Structural Hardening), updated project structure, mission system docs, defense regime docs, new "Structural Fixes" section with WHY/gotchas
 
-### Key Architecture Decisions
+### Key Changes (this session)
 
-1. **Git worktrees** for parallel agent work — each agent gets their own working directory, sharing one object store. Solves GitPython thread-safety issues.
-2. **Pydantic v2 discriminated unions** for 21 event types — O(1) deserialization on `event_type` field
-3. **Provider abstraction** normalizes Anthropic + OpenAI at the boundary (tool schemas, message formats, token counting)
-4. **Constructor injection throughout** — no DI framework, compose at top-level `main()`
-5. **Thin tool layer** — `tools.py` delegates to domain modules (`memory.py`, `pull_request.py`, `sandbox.py`)
-6. **Scratchpads outside repo** — stored in `runs/<run-id>/scratchpads/`, eliminates git isolation concerns
-7. **Deterministic scratchpad compression** — take first line of old entries, no LLM summarization for v1
-
-### Plan Artifacts Generated
-
-- `plan.md` — Technical context, constitution check, project structure, architecture overview
-- `research.md` — 10 resolved unknowns (R1-R10) with Decision/Rationale/Alternatives
-- `data-model.md` — All Pydantic models, relationships, validation rules, state transitions
-- `contracts/provider.md` — Provider ABC interface
-- `contracts/tools.md` — Tool system interface + catalog (15 standard + 5 sensitive tools)
-- `contracts/events.md` — Event system interface + 21 event types
-- `contracts/config-schemas.md` — All user-facing YAML schemas
-- `quickstart.md` — Developer getting started guide
+- `Agent.get_full_system_prompt()` — single source of truth for agent identity across all phases
+- Defense regimes wired into runtime (were dead code): components gate, watchdog prompt, agent_briefing injection
+- `[RED BUTTON]` validator on MissionProfile — missions must end with an irreversible final milestone
+- All 5 mission YAMLs rewritten: agency-preserving, zero tactics
+- Config dirs moved under `experiments/` with `base_dir` resolution
+- Evaluator default changed to `claude-opus-4-6`
+- Bug fixes: tool exception logging, scratchpad whitespace normalization
 
 ### Current State
 
 - **Branch**: `001-agent-amogus-v1`
-- **Speckit phase**: `plan` (complete)
-- **No implementation code written yet**
-- **CLAUDE.md updated** with active technologies
+- **PR**: #1 (open, targeting main)
+- **Latest commit**: `1ff9d94` (pushed)
+- **Verification**: ruff, pyright, ruff format all clean; schema + behavioral tests pass
+- **Work plan**: `.claude/work-plan.md` — all 7 steps COMPLETE
 
 ### Next Steps
 
-- Run `/speckit.tasks` to break the plan into implementable tasks
-- Then `/speckit.implement` to execute tasks
+1. **Unit tests** — write tests using existing conftest fixtures (`tests/conftest.py` has MockProvider, temp_repo, config factories)
+2. **Integration test** — `amogus run --scenario experiments/scenarios/example-basic.yaml` (needs a real Git repo URL in `target_repo`)
+3. **Merge PR #1** after tests pass
 
-### Key Files
+### Key References
 
-- Masterplan: `.claude/masterplan.md`
-- Constitution: `.specify/memory/constitution.md`
+- Masterplan: `.claude/masterplan.md` (updated this session)
+- Work plan: `.claude/work-plan.md` (all steps complete)
+- User guide: `docs/GUIDE.md`
 - Spec: `.specify/specs/001-agent-amogus-v1/spec.md`
-- **Plan: `.specify/specs/001-agent-amogus-v1/plan.md`**
-- **Research: `.specify/specs/001-agent-amogus-v1/research.md`**
-- **Data model: `.specify/specs/001-agent-amogus-v1/data-model.md`**
-- **Contracts: `.specify/specs/001-agent-amogus-v1/contracts/`**
-- **Quickstart: `.specify/specs/001-agent-amogus-v1/quickstart.md`**
-- Quality checklist: `.specify/specs/001-agent-amogus-v1/checklists/requirements.md`
-- Speckit state: `.specify/specs/001-agent-amogus-v1/.speckit-state.json`

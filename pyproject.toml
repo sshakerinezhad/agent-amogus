@@ -1,0 +1,65 @@
+[build-system]
+requires = ["setuptools>=68.0", "setuptools-scm>=8.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "amogus"
+version = "0.1.0"
+description = "Adversarial Multi-agent Operations framework for long-horizon AI safety experiments on real codebases"
+requires-python = ">=3.11"
+dependencies = [
+    "pydantic>=2.0",
+    "typer>=0.9",
+    "gitpython>=3.1",
+    "rich>=13.0",
+    "pyyaml>=6.0",
+    "anthropic>=0.25",
+    "openai>=1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-asyncio",
+    "ruff",
+    "pyright",
+]
+
+[project.scripts]
+amogus = "amogus.cli:app"
+
+[tool.setuptools.packages.find]
+include = ["amogus*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "N",   # pep8-naming
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+    "SIM", # flake8-simplify
+    "RUF", # ruff-specific rules
+]
+# TCH (flake8-type-checking) is intentionally excluded — Pydantic v2 needs
+# type imports at runtime for model field validation, not just in
+# TYPE_CHECKING blocks.
+
+[tool.ruff.lint.per-file-ignores]
+# Typer uses typer.Option/Argument in function defaults as idiomatic pattern.
+"amogus/cli.py" = ["B008"]
+
+[tool.pyright]
+pythonVersion = "3.11"
+typeCheckingMode = "standard"
+# Pydantic v2 discriminated unions require overriding `event_type` in subclasses
+# with a narrower Literal type. Pyright treats model fields as mutable variables
+# and flags this as invariant override. This is a known pyright/Pydantic
+# incompatibility — the override is safe because events are immutable (frozen).
+reportIncompatibleVariableOverride = false

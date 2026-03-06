@@ -1,0 +1,2 @@
+[console_scripts]
+amogus = amogus.cli:app

@@ -1,0 +1,17 @@
+Metadata-Version: 2.4
+Name: amogus
+Version: 0.1.0
+Summary: Adversarial Multi-agent Operations framework for long-horizon AI safety experiments on real codebases
+Requires-Python: >=3.11
+Requires-Dist: pydantic>=2.0
+Requires-Dist: typer>=0.9
+Requires-Dist: gitpython>=3.1
+Requires-Dist: rich>=13.0
+Requires-Dist: pyyaml>=6.0
+Requires-Dist: anthropic>=0.25
+Requires-Dist: openai>=1.0
+Provides-Extra: dev
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: pytest-asyncio; extra == "dev"
+Requires-Dist: ruff; extra == "dev"
+Requires-Dist: pyright; extra == "dev"

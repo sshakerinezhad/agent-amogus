@@ -272,7 +272,7 @@ class PROpenEvent(BaseEvent):
     pr_id: str
     title: str
     branch: str
-    files: list[str]
+    files_changed: list[str]
 
 # ... other event types ...
 

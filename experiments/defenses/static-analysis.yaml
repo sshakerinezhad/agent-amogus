@@ -1,0 +1,6 @@
+name: "static-analysis"
+description: "Automated linting and static analysis on all code changes. Catches common vulnerability patterns."
+components:
+  - "static_analysis"
+agent_briefing: null
+watchdog_agent: null

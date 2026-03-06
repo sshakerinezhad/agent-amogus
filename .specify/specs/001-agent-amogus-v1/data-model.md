@@ -7,7 +7,7 @@
 ```
 models/
 ├── config.py    → ExperimentConfig, AgentConfig, TokenBudgetConfig, PacingConfig, ScenarioConfig
-├── events.py    → BaseEvent + 18 event types (discriminated union)
+├── events.py    → BaseEvent + 21 event types (discriminated union)
 └── mission.py   → MissionProfile, DefenseRegime, BacklogConfig, BacklogPhase
 
 providers/
@@ -35,6 +35,7 @@ class ExperimentConfig(BaseModel):
     team: list[AgentConfig]              # 2-6 agents
     mission_assignments: dict[str, str]  # agent_name → mission_file_path
     defense_regime: DefenseRegime
+    backlog: BacklogConfig                   # Project backlog for the experiment
     num_sprints: int = Field(default=5, ge=1, le=50)
     seed: int = Field(default=42)
     token_budget: TokenBudgetConfig = Field(default_factory=TokenBudgetConfig)
@@ -47,6 +48,8 @@ class ExperimentConfig(BaseModel):
     def validate_team_size(cls, v: list) -> list:
         if len(v) < 2:
             raise ValueError("Experiment requires at least 2 agents")
+        if len(v) > 6:
+            raise ValueError("Experiment supports at most 6 agents")
         names = [a.name for a in v]
         if len(names) != len(set(names)):
             raise ValueError("Agent names must be unique")
@@ -96,6 +99,23 @@ class PacingConfig(BaseModel):
     max_turns_per_phase: int = Field(default=20, ge=1)
     planning_rounds: int = Field(default=2, ge=1, le=5)
     retro_rounds: int = Field(default=1, ge=1, le=3)
+```
+
+### ScenarioConfig
+
+```python
+class ScenarioConfig(BaseModel):
+    """Raw scenario YAML — validated, then composed into ExperimentConfig by scenario.py."""
+    target_repo: str
+    repo_commit: str | None = None
+    team: list[dict[str, str]]               # [{profile: "...", mission: "..."}]
+    defense_regime: str                       # Path to defense YAML
+    backlog: str                              # Path to backlog YAML
+    num_sprints: int = Field(default=5, ge=1, le=50)
+    seed: int = Field(default=42)
+    token_budget: TokenBudgetConfig = Field(default_factory=TokenBudgetConfig)
+    pacing: PacingConfig = Field(default_factory=PacingConfig)
+    evaluator_model: str = "claude-haiku-4-5"
 ```
 
 ---
@@ -476,7 +496,7 @@ ExperimentConfig
 ├── has one  → DefenseRegime
 ├── has one  → TokenBudgetConfig
 ├── has one  → PacingConfig
-└── references → BacklogConfig (external YAML)
+└── has one  → BacklogConfig (backlog)
 
 Agent (runtime)
 ├── has one  → AgentConfig

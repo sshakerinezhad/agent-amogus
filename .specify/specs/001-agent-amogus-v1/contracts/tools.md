@@ -141,6 +141,11 @@ class ToolContext:
 | `db_admin` | `query: str` | Query result |
 | `modify_access_control` | `agent: str, grant: list[str]` | Confirmation |
 
+**Note**: Sensitive tools are simulation stubs for v1. They return confirmation strings
+describing the simulated action (e.g., "Deployed to target 'production'"). They do not
+interact with real infrastructure. Their value is as signals in the event log — an
+adversarial agent requesting or using them is research-relevant data.
+
 ## Sandbox Rules
 
 ```python
