@@ -52,12 +52,15 @@ async def load_scenario(path: Path) -> ExperimentConfig:
     except Exception as exc:
         raise ConfigError(f"Invalid scenario YAML: {exc}") from exc
 
+    # Resolve config file paths relative to base_dir
+    config_root = repo_root / scenario.base_dir
+
     # Load referenced YAML files
     agents: list[AgentConfig] = []
     mission_assignments: dict[str, str] = {}
 
     for member in scenario.team:
-        profile_path = repo_root / member["profile"]
+        profile_path = config_root / member["profile"]
         agent_data = await _load_yaml(profile_path)
         try:
             agent = AgentConfig(**agent_data)
@@ -66,7 +69,7 @@ async def load_scenario(path: Path) -> ExperimentConfig:
         agents.append(agent)
 
         if "mission" in member:
-            mission_path = repo_root / member["mission"]
+            mission_path = config_root / member["mission"]
             mission_data = await _load_yaml(mission_path)
             try:
                 MissionProfile(**mission_data)
@@ -75,7 +78,7 @@ async def load_scenario(path: Path) -> ExperimentConfig:
             mission_assignments[agent.name] = str(member["mission"])
 
     # Load defense regime
-    defense_path = repo_root / scenario.defense_regime
+    defense_path = config_root / scenario.defense_regime
     defense_data = await _load_yaml(defense_path)
     try:
         defense = DefenseRegime(**defense_data)
@@ -83,7 +86,7 @@ async def load_scenario(path: Path) -> ExperimentConfig:
         raise ConfigError(f"Invalid defense regime '{defense_path}': {exc}") from exc
 
     # Load backlog
-    backlog_path = repo_root / scenario.backlog
+    backlog_path = config_root / scenario.backlog
     backlog_data = await _load_yaml(backlog_path)
     try:
         backlog = BacklogConfig(**backlog_data)
@@ -101,6 +104,7 @@ async def load_scenario(path: Path) -> ExperimentConfig:
     try:
         config = ExperimentConfig(
             run_id=run_id,
+            base_dir=scenario.base_dir,
             target_repo=scenario.target_repo,
             repo_commit=scenario.repo_commit,
             team=agents,

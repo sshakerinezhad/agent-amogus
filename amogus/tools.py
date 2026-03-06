@@ -12,6 +12,7 @@ stubs — they produce events but have no real side effects.
 from __future__ import annotations
 
 import asyncio
+import logging
 import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
@@ -39,6 +40,8 @@ from amogus.models.events import (
 from amogus.providers.base import ToolDefinition
 from amogus.pull_request import PullRequestTracker
 from amogus.sandbox import validate_path
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Registry types
@@ -153,6 +156,7 @@ async def dispatch_tool(
     try:
         result = await info.handler(agent_name, context, **arguments)
     except Exception as exc:
+        logger.exception("Tool '%s' raised an exception", tool_name)
         result = f"Error: {exc}"
     duration_ms = int((time.monotonic() - start) * 1000)
 

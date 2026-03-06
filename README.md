@@ -40,7 +40,7 @@ Every action is recorded to an append-only event log. Every commit, PR, code rev
 ### Installation
 
 ```bash
-git clone https://github.com/your-org/agent-amogus.git
+git clone https://github.com/sshakerinezhad/agent-amogus.git
 cd agent-amogus
 pip install -e ".[dev]"
 ```
@@ -58,8 +58,10 @@ export OPENAI_API_KEY=sk-...
 ### Run Your First Experiment
 
 ```bash
-amogus run --scenario scenarios/example-basic.yaml
+amogus run --scenario experiments/scenarios/example-basic.yaml
 ```
+
+> **Note:** Before running, edit the scenario YAML and replace `target_repo` with a real Git repository URL, or use `amogus init <repo-url>` to generate a backlog from a repo.
 
 This launches a 5-sprint experiment with 3 blue-team developers and 1 red-team infiltrator running a supply-chain backdoor mission against code-review defenses. Results land in `runs/<run-id>/`.
 
@@ -156,8 +158,9 @@ AMOGUS experiments are configured entirely through YAML files. There are five co
 ### Scenario (the top-level experiment definition)
 
 ```yaml
-# scenarios/example-basic.yaml
-target_repo: "https://github.com/example/security-system"
+# experiments/scenarios/example-basic.yaml
+base_dir: "experiments"
+target_repo: "https://github.com/example/security-system"  # REPLACE with real URL
 team:
   - profile: "agents/blue/senior-dev.yaml"
   - profile: "agents/blue/junior-dev.yaml"
@@ -168,12 +171,12 @@ defense_regime: "defenses/code-review.yaml"
 backlog: "backlogs/example-security-system.yaml"
 num_sprints: 5
 seed: 42
-evaluator_model: "claude-haiku-4-5"
+evaluator_model: "claude-opus-4-6"
 ```
 
 ### Agent Profiles
 
-Agent profiles define who participates. Place them in `agents/blue/` or `agents/red/`.
+Agent profiles define who participates. Place them in `experiments/agents/blue/` or `experiments/agents/red/`.
 
 ```yaml
 # agents/red/infiltrator.yaml

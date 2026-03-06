@@ -85,9 +85,10 @@ async def _run(scenario_path: Path, *, no_dashboard: bool = False) -> None:
     backlog = BacklogManager(config.backlog)
     pr_tracker = PullRequestTracker()
 
-    # Resolve mission file paths relative to the scenario repo root.
+    # Resolve config file paths relative to base_dir.
     # config.run_dir is <repo_root>/runs/<run-id>, so repo root is two levels up.
     repo_root = config.run_dir.parent.parent
+    config_root = repo_root / config.base_dir
 
     # Build agents
     agents: list[Agent] = []
@@ -98,10 +99,15 @@ async def _run(scenario_path: Path, *, no_dashboard: bool = False) -> None:
         mission: MissionProfile | None = None
         if agent_config.name in config.mission_assignments:
             mission_rel = config.mission_assignments[agent_config.name]
-            mission_path = repo_root / mission_rel
+            mission_path = config_root / mission_rel
             with open(mission_path, encoding="utf-8") as f:
                 mission_data = yaml.safe_load(f)
             mission = MissionProfile(**mission_data)
+
+        # Determine defense briefing (blue team only)
+        defense_briefing: str | None = None
+        if agent_config.name not in config.mission_assignments:
+            defense_briefing = config.defense_regime.agent_briefing
 
         agent = Agent(
             config=agent_config,
@@ -111,6 +117,7 @@ async def _run(scenario_path: Path, *, no_dashboard: bool = False) -> None:
             workspace=config.run_dir / "worktrees" / agent_config.name,
             mission=mission,
             budget=config.token_budget.per_agent_per_sprint * config.num_sprints,
+            defense_briefing=defense_briefing,
         )
         agents.append(agent)
 
@@ -253,6 +260,7 @@ async def _resume(run_id: str, *, no_dashboard: bool = False) -> None:
 
     # Derive repo root from run_dir (runs/<run-id> -> repo root two levels up)
     repo_root = run_dir.parent.parent
+    config_root = repo_root / config.base_dir
 
     # Create shared infrastructure
     backlog = BacklogManager(config.backlog)
@@ -267,10 +275,15 @@ async def _resume(run_id: str, *, no_dashboard: bool = False) -> None:
         mission: MissionProfile | None = None
         if agent_config.name in config.mission_assignments:
             mission_rel = config.mission_assignments[agent_config.name]
-            mission_path = repo_root / mission_rel
+            mission_path = config_root / mission_rel
             with open(mission_path, encoding="utf-8") as f:
                 mission_data = yaml.safe_load(f)
             mission = MissionProfile(**mission_data)
+
+        # Determine defense briefing (blue team only)
+        defense_briefing: str | None = None
+        if agent_config.name not in config.mission_assignments:
+            defense_briefing = config.defense_regime.agent_briefing
 
         agent = Agent(
             config=agent_config,
@@ -280,6 +293,7 @@ async def _resume(run_id: str, *, no_dashboard: bool = False) -> None:
             workspace=run_dir / "worktrees" / agent_config.name,
             mission=mission,
             budget=config.token_budget.per_agent_per_sprint * config.num_sprints,
+            defense_briefing=defense_briefing,
         )
 
         # Restore scratchpad content from checkpoint
@@ -386,7 +400,7 @@ async def _report(run_id: str) -> None:
     console.print(f"  SQLite index:    [dim]{sqlite_path}[/dim]")
 
     # Find ExperimentStartEvent to get evaluator_model
-    evaluator_model = "claude-haiku-4-5"  # default
+    evaluator_model = "claude-opus-4-6"  # default
     for event in events:
         if event.event_type == "experiment_start":
             config_snapshot = event.config_snapshot  # type: ignore[union-attr]
@@ -584,13 +598,13 @@ async def _init(repo_url: str) -> None:
             "phases": phases,
         }
 
-        # Write to backlogs/ directory
-        backlogs_dir = Path("backlogs")
+        # Write to experiments/backlogs/ directory
+        backlogs_dir = Path("experiments") / "backlogs"
         backlogs_dir.mkdir(parents=True, exist_ok=True)
         output_path = backlogs_dir / f"{project_name}.yaml"
 
         with open(output_path, "w", encoding="utf-8") as f:
-            f.write(f"# backlogs/{project_name}.yaml\n")
+            f.write(f"# experiments/backlogs/{project_name}.yaml\n")
             f.write(f"# Auto-generated backlog for {project_name} from {repo_url}\n\n")
             yaml.dump(
                 backlog_data,

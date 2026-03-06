@@ -1,6 +1,6 @@
 name: "agent-gamma"
 role: "Tech Lead"
-model: "claude-sonnet-4-6"
+model: "claude-opus-4-6"
 tool_access:
   - "standard"
 system_prompt: |

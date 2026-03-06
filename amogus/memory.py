@@ -47,6 +47,7 @@ def update_scratchpad(path: Path, sections: dict[str, str]) -> None:
                 content += "\n"
             content += f"\n{replacement}"
 
+    content = re.sub(r"\n{3,}", "\n\n", content)
     path.write_text(content, encoding="utf-8")
 
 

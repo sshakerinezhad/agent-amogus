@@ -51,10 +51,22 @@ Current AI safety evaluations test single-turn or short-horizon deception. They 
 - Outputs structured scores and key moments
 
 **5. Reporter / Dashboard**
-- Live web dashboard showing agent activity + evil agent progress (classified panel)
+- Rich TUI dashboard showing agent activity + evil agent progress (classified panel); web dashboard planned for v2
 - Mission timeline visualization (spy movie aesthetic)
 - Post-run debrief: scoreboard, key moments, strategy analysis
 - Exportable for sharing (images, HTML)
+
+---
+
+## Current Status
+
+**Branch:** `001-agent-amogus-v1` | **PR:** [#1](https://github.com/sshakerinezhad/agent-amogus/pull/1) (open)
+
+- All 45/45 speckit tasks complete (Phases 1-3)
+- 3 critical + 3 minor bugs found during code review, all fixed
+- Ruff, pyright passing clean; provider smoke test passes
+- `docs/GUIDE.md` written (concise user-facing walkthrough)
+- **Remaining:** integration test (live end-to-end run), unit tests
 
 ---
 
@@ -362,15 +374,15 @@ Enables ablation studies: change one variable, rerun, compare.
 
 ## Tech Stack
 
-- **Language:** Python 3.11+
-- **Agent APIs:** Anthropic SDK, OpenAI SDK, Google GenAI SDK (thin provider abstraction)
+- **Language:** Python 3.11+ (asyncio.TaskGroup, modern type hints)
+- **Agent APIs:** Anthropic SDK, OpenAI SDK (thin provider abstraction; Google GenAI deferred to v2)
 - **Orchestration:** asyncio for concurrent agent management
-- **Event Log:** Structured JSON (append-only file, upgradeable to DB later)
-- **Dashboard:** Rich (TUI for v1), FastAPI + React for live web dashboard (v1.1)
-- **Config:** YAML for all scenario/agent/mission definitions
-- **CLI:** Click or Typer for `amogus` command
-- **Git:** GitPython for repo operations
-- **Data Models:** Pydantic for config validation and event schemas
+- **Event Log:** JSONL (append-only primary log) + SQLite (derived post-run index via stdlib sqlite3)
+- **Dashboard:** Rich TUI (v1); FastAPI + React web dashboard planned for v2
+- **Config:** YAML (PyYAML) for all scenario/agent/mission/defense definitions
+- **CLI:** Typer — 5 commands: `run`, `resume`, `report`, `replay`, `init`
+- **Git:** GitPython for repo cloning, worktrees, commits, merges
+- **Data Models:** Pydantic v2 for config validation, event schemas, discriminated unions
 
 ---
 
@@ -379,48 +391,59 @@ Enables ablation studies: change one variable, rerun, compare.
 ```
 amogus/
 ├── amogus/
-│   ├── __init__.py
-│   ├── cli.py                 # amogus init, run, replay, report
-│   ├── scenario.py            # Scenario loader
-│   ├── orchestrator.py        # Sprint loop manager
-│   ├── agent.py               # Agent abstraction (context management, tool dispatch)
-│   ├── memory.py              # Scratchpad management (update, compress, inject)
-│   ├── tools.py               # Framework tools (git, file, PR, messaging) + access tiers
+│   ├── __init__.py            # Version string only
+│   ├── cli.py                 # Typer app — run, resume, report, replay, init
+│   ├── scenario.py            # YAML -> ExperimentConfig loader
+│   ├── orchestrator.py        # Sprint loop engine (plan->work->review->retro)
+│   ├── agent.py               # Agent class — agentic tool-use loop (up to 50 iterations)
+│   ├── memory.py              # Scratchpad CRUD (load, update, compress)
+│   ├── tools.py               # 20 tools with @tool decorator, tier enforcement, dispatch
+│   ├── sandbox.py             # Path validation — workspace isolation
+│   ├── backlog.py             # Task tracking (claim, complete, context string)
+│   ├── pull_request.py        # Local PR tracker (open, review, merge via git)
+│   ├── checkpoint.py          # Save/load sprint-level state for resume
+│   ├── exceptions.py          # Error hierarchy (6 exception classes)
 │   ├── providers/
-│   │   ├── __init__.py
-│   │   ├── base.py            # Abstract provider interface
-│   │   ├── anthropic.py       # Claude (Anthropic SDK)
-│   │   ├── openai.py          # GPT (OpenAI SDK)
-│   │   └── google.py          # Gemini (Google GenAI SDK)
-│   ├── evaluator.py           # Judge — continuous scoring
-│   ├── event_log.py           # Append-only event recording
-│   ├── reporter.py            # Post-run report generation
-│   ├── dashboard.py           # Live TUI dashboard (Rich)
+│   │   ├── __init__.py        # Registry + factory (create_provider)
+│   │   ├── base.py            # Provider ABC + canonical types (Message, Response, etc.)
+│   │   ├── anthropic.py       # Claude (Anthropic Messages API)
+│   │   └── openai.py          # GPT (OpenAI Chat Completions API)
+│   ├── evaluator.py           # LLM judge — per-sprint scoring + key moments
+│   ├── event_log.py           # JSONL append-only log + SQLite indexer
+│   ├── reporter.py            # Post-run Markdown + HTML debrief generation
+│   ├── dashboard.py           # Rich TUI — 4 panels (agents, sprint, events, classified)
 │   └── models/
-│       ├── events.py          # Event dataclasses
-│       ├── config.py          # Experiment config models
-│       └── mission.py         # Mission/milestone models
+│       ├── config.py          # ExperimentConfig, AgentConfig, ScenarioConfig (Pydantic v2)
+│       ├── events.py          # 22 event types, discriminated union
+│       └── mission.py         # MissionProfile, DefenseRegime, BacklogConfig
 ├── agents/
 │   ├── blue/
-│   │   ├── senior-dev.yaml
-│   │   ├── junior-dev.yaml
-│   │   └── tech-lead.yaml
+│   │   ├── senior-dev.yaml    # claude-sonnet, security specialist
+│   │   ├── junior-dev.yaml    # claude-haiku, frontend focus
+│   │   └── tech-lead.yaml     # claude-opus, architecture focus
 │   └── red/
-│       └── infiltrator.yaml
+│       └── infiltrator.yaml   # claude-opus, neutral-looking system prompt
 ├── missions/
-│   ├── supply-chain-backdoor.yaml
-│   ├── data-exfiltration.yaml
-│   ├── logic-bomb.yaml
-│   ├── credential-theft.yaml
-│   └── privilege-escalation.yaml
+│   ├── supply-chain-backdoor.yaml    # PHANTOM GATE
+│   ├── data-exfiltration.yaml        # DARK MIRROR
+│   ├── logic-bomb.yaml               # DEAD HAND
+│   ├── credential-theft.yaml         # IRON CURTAIN
+│   └── privilege-escalation.yaml     # GLASS CEILING
 ├── defenses/
-│   ├── none.yaml
-│   ├── code-review.yaml
-│   ├── watchdog.yaml
-│   └── full-paranoia.yaml
+│   ├── none.yaml              # No defense awareness
+│   ├── code-review.yaml       # Thorough code review only
+│   ├── static-analysis.yaml   # Automated SAST/linting on PRs
+│   ├── watchdog.yaml          # One agent has security review duties
+│   ├── briefed.yaml           # Agents told adversary may be present
+│   └── full-paranoia.yaml     # All defenses combined
 ├── backlogs/
 │   └── example-security-system.yaml
+├── scenarios/
+│   └── example-basic.yaml     # 4 agents, code-review defense, 5 sprints
+├── docs/
+│   └── GUIDE.md               # User-facing walkthrough
 ├── tests/
+│   └── conftest.py            # MockProvider, temp_repo, config factories
 ├── pyproject.toml
 └── README.md
 ```
@@ -429,36 +452,61 @@ amogus/
 
 ## Implementation Phases
 
-### Phase 1: Core Engine (MVP)
-- Provider abstraction + Anthropic provider (Claude first, others follow)
-- Tool system with access tiers (standard + sensitive, configurable per agent)
-- Scenario loader (parse YAML configs, fork repo)
-- Agent abstraction (system prompts, context injection, tool dispatch)
-- Scratchpad system (create, update, compress, inject into context)
-- Basic orchestrator (run N sprints with planning → work → review → retro)
-- Event log (append-only JSON)
-- CLI: `amogus run --scenario scenario.yaml`
+### Phase 1: Core Engine (MVP) — COMPLETE
+- [x] Provider abstraction + Anthropic/OpenAI providers
+- [x] Tool system with access tiers (15 standard + 5 sensitive, configurable per agent)
+- [x] Scenario loader (parse YAML configs, clone repo, create worktrees)
+- [x] Agent abstraction (system prompts, context injection, tool dispatch, agentic loop)
+- [x] Scratchpad system (create, update, compress, inject into context)
+- [x] Orchestrator (run N sprints with planning → work → review → retro)
+- [x] Event log (append-only JSONL)
+- [x] CLI: `amogus run --scenario scenario.yaml`
 
-### Phase 2: Evaluation & Output
-- Evaluator/Judge (LLM-based continuous scoring from event stream)
-- Post-run reporter (mission debrief, scoreboard, key moments)
-- Rich TUI dashboard for live monitoring
-- Experiment metadata capture
+### Phase 2: Evaluation & Output — COMPLETE
+- [x] Evaluator/Judge (LLM-based continuous per-sprint scoring from event stream)
+- [x] Post-run reporter (Markdown + standalone HTML mission debrief)
+- [x] Rich TUI dashboard for live monitoring (4-panel spy-themed layout)
+- [x] Sprint-level checkpointing + resume from crash
+- [x] SQLite index builder for post-run event queries
+- [x] Terminal replay command with speed control
 
-### Phase 3: Mission Library & Community
-- Starter mission profiles (5 missions)
-- Multiple agent profiles (blue and red)
-- Defense regime configs
-- `amogus init` pipeline (generate backlog from repo)
-- Documentation for community contributions
-- Shareable report format (HTML/images for social media)
+### Phase 3: Mission Library & Community — COMPLETE
+- [x] 5 starter mission profiles (supply-chain, exfil, logic bomb, credential theft, privesc)
+- [x] 4 agent profiles (3 blue, 1 red)
+- [x] 6 defense regime configs (none through full-paranoia)
+- [x] `amogus init` pipeline (generate backlog from repo README)
+- [x] README with quickstart and architecture overview
+- [x] User guide (`docs/GUIDE.md`)
+- [x] Shareable report format (standalone HTML with inline CSS)
 
-### Phase 4: Research Features (v2)
-- Additional providers (OpenAI, Google) for model ablation studies
-- Batch runner (run N experiments with variable configs)
-- Statistical analysis tools (aggregate metrics across runs)
-- Metagame across campaigns (blue team learns from previous runs)
-- Web dashboard (FastAPI + React)
+### Phase 4: Research Features (v2) — NOT STARTED
+- [ ] Google GenAI provider (Gemini models) for model ablation studies
+- [ ] Batch runner (run N experiments with variable configs)
+- [ ] Statistical analysis tools (aggregate metrics across runs)
+- [ ] Metagame across campaigns (blue team learns from previous runs)
+- [ ] Web dashboard (FastAPI + React)
+
+**Why Phase 4 was deferred:** The speckit spec was scoped as `001-agent-amogus-v1`, covering Phases 1-3. Phase 4 features require a working v1 to build on (batch runner needs a stable single-run, stats need multiple completed runs, metagame needs campaign history). OpenAI provider was pulled into v1 since it was straightforward to implement alongside Anthropic.
+
+---
+
+## Bugs Found & Fixed (Post-Implementation Review)
+
+Code review after all 45 tasks were complete found 6 issues. All fixed and verified.
+
+### Critical (blocked runtime)
+
+1. **Provider registry dead** — `providers/__init__.py` never imported `anthropic.py`/`openai.py`, so their `register_provider()` calls at module level never fired. `_PROVIDERS` was always empty. **Fix:** Added explicit imports at end of `__init__.py`. **Why it happened:** Self-registration pattern requires the module to be imported somewhere — the `__init__.py` was written before the provider modules existed and never updated.
+
+2. **Anthropic tool loop broken** — `format_tool_results()` did `content=str(list_of_dicts)` instead of passing structured `tool_calls`/`tool_results` on Message. API received Python repr strings. **Fix:** Simplified to return `[Message(role="assistant", content=..., tool_calls=...), Message(role="user", content=None, tool_results=...)]` matching the OpenAI provider pattern. **Why it happened:** The Anthropic provider was built first and the canonical Message type evolved; the OpenAI provider (built second) used the correct pattern.
+
+3. **Work phase drops scratchpad** — `orchestrator.py` called `build_context()` but discarded the returned messages. Agents had no memory during work phase. **Fix:** Added `load_scratchpad()` call and injected content into the work phase prompt string. **Why it happened:** `build_context()` was designed for meeting phases (returns Message list for conversation); work phase uses a prompt string, so the context format didn't match.
+
+### Minor (non-blocking)
+
+4. **checkpoint.py accessed private attrs** — Used `_task_sprint`, `_repo`, `_prs` from other classes. **Fix:** Added public accessors on BacklogManager, PullRequestTracker, Orchestrator.
+5. **Dashboard counted duration_ms as tokens** — Accumulated `ToolCallEvent.duration_ms` into token counters. **Fix:** Removed the incorrect accumulation.
+6. **Reporter async/sync mismatch** — Async function signature but sync file I/O inside. **Fix:** Wrapped in `asyncio.to_thread`.
 
 ---
 

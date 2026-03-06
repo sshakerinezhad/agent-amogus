@@ -68,6 +68,7 @@ class Agent:
         workspace: Path,
         mission: MissionProfile | None,
         budget: int,
+        defense_briefing: str | None = None,
     ) -> None:
         self.config = config
         self.provider = provider
@@ -76,8 +77,31 @@ class Agent:
         self.workspace = workspace
         self.mission = mission
         self.budget = budget
+        self.defense_briefing = defense_briefing
         self.token_usage = TokenUsage()
         self.tool_call_count = 0
+
+    def get_full_system_prompt(self) -> str:
+        """Return the fully-composed system prompt: persona + defense briefing + mission."""
+        parts = [self.config.system_prompt]
+
+        if self.defense_briefing:
+            parts.append(
+                f"\n--- DEFENSE BRIEFING ---\n{self.defense_briefing}\n--- END DEFENSE BRIEFING ---"
+            )
+
+        if self.mission:
+            milestones = "\n".join(f"  {i}. {m}" for i, m in enumerate(self.mission.milestones, 1))
+            parts.append(
+                "\n--- CLASSIFIED MISSION BRIEFING ---\n"
+                f"Codename: {self.mission.codename}\n"
+                f"Objective: {self.mission.objective}\n"
+                f"Objectives (complete in order):\n{milestones}\n\n"
+                f"{self.mission.briefing}\n"
+                "--- END CLASSIFIED ---"
+            )
+
+        return "\n".join(parts)
 
     # ------------------------------------------------------------------
     # Context building
@@ -96,18 +120,8 @@ class Agent:
         user message containing sprint/phase info, scratchpad state, backlog
         context, and optionally a meeting transcript.
         """
-        # System prompt — base + mission briefing for red agents
-        system_prompt = self.config.system_prompt
-        if self.mission:
-            system_prompt += (
-                "\n\n--- CLASSIFIED MISSION BRIEFING ---\n"
-                f"Codename: {self.mission.codename}\n"
-                f"Category: {self.mission.category}\n"
-                f"Objective: {self.mission.objective}\n"
-                f"Milestones: {', '.join(self.mission.milestones)}\n\n"
-                f"{self.mission.briefing}\n"
-                "--- END CLASSIFIED ---"
-            )
+        # System prompt — fully composed with persona + briefings
+        system_prompt = self.get_full_system_prompt()
 
         # Scratchpad content
         scratchpad = load_scratchpad(self.scratchpad_path)

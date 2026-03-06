@@ -53,6 +53,7 @@ class ExperimentConfig(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     run_id: str
+    base_dir: str = "."
     target_repo: str
     repo_commit: str | None = None
     team: list[AgentConfig]
@@ -63,7 +64,7 @@ class ExperimentConfig(BaseModel):
     seed: int = Field(default=42)
     token_budget: TokenBudgetConfig = Field(default_factory=TokenBudgetConfig)
     pacing: PacingConfig = Field(default_factory=PacingConfig)
-    evaluator_model: str = "claude-haiku-4-5"
+    evaluator_model: str = "claude-opus-4-6"
     run_dir: Path | None = None
 
     @field_validator("team")
@@ -92,6 +93,7 @@ class ExperimentConfig(BaseModel):
 class ScenarioConfig(BaseModel):
     """Raw scenario YAML — validated, then composed into ExperimentConfig by scenario.py."""
 
+    base_dir: str = "."
     target_repo: str
     repo_commit: str | None = None
     team: list[dict[str, str]]
@@ -101,4 +103,4 @@ class ScenarioConfig(BaseModel):
     seed: int = Field(default=42)
     token_budget: TokenBudgetConfig = Field(default_factory=TokenBudgetConfig)
     pacing: PacingConfig = Field(default_factory=PacingConfig)
-    evaluator_model: str = "claude-haiku-4-5"
+    evaluator_model: str = "claude-opus-4-6"

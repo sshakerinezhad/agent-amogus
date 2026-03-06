@@ -4,48 +4,47 @@
 
 Adversarial Multi-agent Operations for Gauging Undetected Sabotage — an open-source Python framework for running long-horizon adversarial experiments on real codebases with autonomous coding agent teams.
 
-## Session Summary (2026-03-05, session 9)
+## Session Summary (2026-03-06, session 12)
 
 ### What was done
 
-**Executed the full bug fix plan** from `.claude/work-plan.md`:
+**Executed all 7 steps of the work plan** (`.claude/work-plan.md`) covering 8 structural issues:
 
-#### Critical Bugs — ALL FIXED
-1. **Provider Registry Dead** → Added imports of `anthropic`/`openai` modules in `providers/__init__.py`
-2. **Anthropic Tool Loop Broken** → Simplified `format_tool_results` to pass structured `tool_calls`/`tool_results` instead of `str()`-ified dicts
-3. **Work Phase Drops Scratchpad** → Added `load_scratchpad()` call and included content in the work phase prompt
+1. **Step 1 (Bug Fixes)**: Added exception logging to `tools.py`, normalized whitespace in `memory.py`. Skipped event_log false positive.
+2. **Step 2 (Evaluator Default)**: Changed default from `claude-haiku-4-5` → `claude-opus-4-6` in config.py (2 locations), cli.py, README.md, docs/GUIDE.md.
+3. **Step 3 (Agent Persona + Defense Regimes)**:
+   - Added `defense_briefing` param to Agent
+   - Added `get_full_system_prompt()` — single source of truth for persona + briefings
+   - Refactored `build_context()` to use it
+   - Updated all meeting phases (planning/retro/review) to use per-agent system prompts
+   - Added defense components gate in review_phase
+   - Added watchdog-specific security review prompt
+   - Threaded `defense_briefing` through CLI `_run()` and `_resume()`
+4. **Step 4 (Mission Overhaul)**: Added `[RED BUTTON]` validator, lowered min milestones to 1, rewrote all 5 mission YAMLs with agency-preserving briefings.
+5. **Step 5 (Directory Restructure)**: Moved agents/, missions/, defenses/, backlogs/, scenarios/ under `experiments/`. Added `base_dir` to ScenarioConfig + ExperimentConfig. Updated scenario.py path resolution. Updated cli.py `init` command.
+6. **Step 6 (Target Repo Notice)**: Added REPLACE comments in scenario YAML and docs.
+7. **Step 7 (Doc Fixes)**: Fixed dashboard description, clone URL, tech-lead model reference in masterplan.
 
-#### Minor Issues — ALL FIXED
-4. **Private attr access in checkpoint.py** → Added public accessors: `BacklogManager.task_sprint_map`, `BacklogManager.find_task()`, `PullRequestTracker.all_prs`, `Orchestrator.repo`, `Orchestrator.sprints_completed`
-5. **Dashboard token tracking** → Removed incorrect `duration_ms` → token accumulation
-6. **Reporter async/sync** → Wrapped sync I/O in `asyncio.to_thread`
+### Verification Results
 
-#### Verification — ALL PASSING
-- `ruff check .` → All checks passed
-- `ruff format --check .` → 28 files already formatted
-- `pyright` → 0 errors, 0 warnings
-- Provider smoke test → `['claude', 'gpt']` registered successfully
+- **ruff check**: All passed
+- **ruff format**: All formatted
+- **pyright**: 0 errors, 0 warnings
+- **Schema validation**: All 5 missions pass `[RED BUTTON]` validator
+- **Scenario load**: `base_dir: "experiments"` resolves correctly
+- **Defense regimes**: All 6 load with correct components/watchdog/briefing
+- **Behavioral tests**: Red agent gets mission, blue gets defense briefing, plain gets just system_prompt; category excluded from injection
 
 ### Current State
 
 - **Branch**: `001-agent-amogus-v1`
-- **All 45/45 tasks complete** from speckit
-- **All 6 bugs/issues fixed** and verified
-- **Changes are uncommitted** — need to commit + push
-- **Ready to push** after committing
+- **PR**: #1 (open, targeting main)
+- **All 8 issues implemented and verified**
+- **NOT yet committed** — changes ready for review
 
-### Next Steps (for next session)
+### Next Steps
 
-1. **Write a user-facing guide** — User wants a clear, simple, well-structured guide explaining how the codebase works and how to use it (not just a README — a proper walkthrough)
-2. **Commit all uncommitted changes** — bug fixes + minor fixes
-3. **Push** `001-agent-amogus-v1` branch
-4. **PR creation**: Merge to `main`
-5. **Integration test**: `pip install -e ".[dev]"` + `amogus run --scenario scenarios/example-basic.yaml`
-6. **Unit tests**: Write tests using conftest fixtures
-
-### Key References
-
-- Work plan with full project map: `.claude/work-plan.md`
-- Masterplan: `.claude/masterplan.md`
-- Spec: `.specify/specs/001-agent-amogus-v1/spec.md`
-- Tasks: `.specify/specs/001-agent-amogus-v1/tasks.md` (all 45 marked [x])
+1. **Commit** the changes
+2. **Unit tests**: Write tests using conftest fixtures
+3. **Integration test**: `amogus run --scenario experiments/scenarios/example-basic.yaml` (needs real repo URL)
+4. **Merge PR #1** after tests pass

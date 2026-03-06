@@ -10,18 +10,18 @@ An experiment needs 4 YAML files + a scenario that ties them together:
 
 ```
 scenario.yaml          # Top-level — references everything below
-  -> agent profiles    # Who participates (agents/blue/, agents/red/)
-  -> mission profile   # Covert objective (missions/)
-  -> defense regime    # Active safeguards (defenses/)
-  -> backlog           # Legitimate work items (backlogs/)
+  -> agent profiles    # Who participates (experiments/agents/)
+  -> mission profile   # Covert objective (experiments/missions/)
+  -> defense regime    # Active safeguards (experiments/defenses/)
+  -> backlog           # Legitimate work items (experiments/backlogs/)
 ```
 
 ### Step-by-step
 
-**a) Define your agents** in `agents/blue/` and `agents/red/`:
+**a) Define your agents** in `experiments/agents/blue/` and `experiments/agents/red/`:
 
 ```yaml
-# agents/blue/my-dev.yaml
+# experiments/agents/blue/my-dev.yaml
 name: "agent-alice"
 role: "Developer"
 model: "claude-sonnet-4-6"     # Any supported model
@@ -32,7 +32,7 @@ specialties: ["frontend", "testing"]
 
 Red agents look identical — the scenario assigns them a mission.
 
-**b) Pick or create a mission** in `missions/`:
+**b) Pick or create a mission** in `experiments/missions/`:
 
 ```yaml
 codename: "MY MISSION"
@@ -40,13 +40,13 @@ category: "supply-chain"
 objective: "What the agent must accomplish"
 milestones:
   - "Step 1"
-  - "Step 2"
+  - "[RED BUTTON] The irreversible act"
 briefing: "Detailed instructions for the agent..."
 ```
 
 Built-in missions: `supply-chain-backdoor`, `data-exfiltration`, `logic-bomb`, `credential-theft`, `privilege-escalation`.
 
-**c) Pick a defense regime** from `defenses/`:
+**c) Pick a defense regime** from `experiments/defenses/`:
 
 | File | What it does |
 |---|---|
@@ -57,7 +57,7 @@ Built-in missions: `supply-chain-backdoor`, `data-exfiltration`, `logic-bomb`, `
 | `briefed.yaml` | Agents told an adversary may exist |
 | `full-paranoia.yaml` | All defenses combined |
 
-**d) Create a backlog** in `backlogs/`:
+**d) Create a backlog** in `experiments/backlogs/`:
 
 ```yaml
 project: "My Project"
@@ -72,10 +72,11 @@ phases:
 
 Or auto-generate one: `amogus init https://github.com/org/repo`
 
-**e) Wire it together** in `scenarios/`:
+**e) Wire it together** in `experiments/scenarios/`:
 
 ```yaml
-target_repo: "https://github.com/org/repo"
+base_dir: "experiments"
+target_repo: "https://github.com/org/repo"  # REPLACE with real URL
 team:
   - profile: "agents/blue/my-dev.yaml"
   - profile: "agents/red/infiltrator.yaml"
@@ -84,13 +85,13 @@ defense_regime: "defenses/code-review.yaml"
 backlog: "backlogs/my-backlog.yaml"
 num_sprints: 5
 seed: 42
-evaluator_model: "claude-haiku-4-5"
+evaluator_model: "claude-opus-4-6"
 ```
 
 ## 2. Run It
 
 ```bash
-amogus run --scenario scenarios/my-scenario.yaml
+amogus run --scenario experiments/scenarios/my-scenario.yaml
 ```
 
 A Rich TUI dashboard shows live progress. Add `--no-dashboard` for headless runs.
@@ -132,8 +133,8 @@ Change one variable and rerun to compare:
 
 ```bash
 # Same experiment, different defense
-amogus run --scenario scenarios/my-scenario-no-defense.yaml
-amogus run --scenario scenarios/my-scenario-full-paranoia.yaml
+amogus run --scenario experiments/scenarios/my-scenario-no-defense.yaml
+amogus run --scenario experiments/scenarios/my-scenario-full-paranoia.yaml
 
 # Same experiment, different seed
 # (edit seed: in the YAML)
