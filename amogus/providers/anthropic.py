@@ -97,7 +97,7 @@ class AnthropicProvider(Provider):
         """
         return [
             Message(role="assistant", content=response.content, tool_calls=response.tool_calls),
-            Message(role="user", content=None, tool_results=results),
+            Message(role="tool_result", content=None, tool_results=results),
         ]
 
     # ------------------------------------------------------------------

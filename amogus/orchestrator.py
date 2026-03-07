@@ -34,6 +34,7 @@ from amogus.models.events import (
     PhaseEndEvent,
     PhaseStartEvent,
     PRMergeEvent,
+    PRReviewEvent,
     SprintEndEvent,
     SprintStartEvent,
 )
@@ -166,6 +167,18 @@ class Orchestrator:
                 )
             )
 
+        except Exception as exc:
+            logger.exception("Experiment failed with unexpected error: %s", exc)
+            await self._emit(
+                ExperimentEndEvent(
+                    sprint=max(0, self._sprints_completed),
+                    phase="teardown",
+                    reason="error",
+                    total_sprints_completed=self._sprints_completed,
+                )
+            )
+            raise
+
         finally:
             # Always stop the dashboard, even on exceptions
             if self.dashboard is not None:
@@ -237,6 +250,16 @@ class Orchestrator:
         except Exception as exc:
             logger.warning("Checkpoint save failed for sprint %d: %s", n, exc)
 
+        # Emit SprintEndEvent before evaluator so it sees the complete sprint
+        await self._emit(
+            SprintEndEvent(
+                sprint=n,
+                phase="teardown",
+                sprint_number=n,
+                checkpoint_saved=checkpoint_saved,
+            )
+        )
+
         # Evaluate sprint if evaluator is available
         if self.evaluator is not None:
             try:
@@ -261,15 +284,6 @@ class Orchestrator:
                     )
             except Exception as exc:
                 logger.warning("Evaluation failed for sprint %d: %s", n, exc)
-
-        await self._emit(
-            SprintEndEvent(
-                sprint=n,
-                phase="teardown",
-                sprint_number=n,
-                checkpoint_saved=checkpoint_saved,
-            )
-        )
 
     # ------------------------------------------------------------------
     # Phase implementations
@@ -414,6 +428,10 @@ class Orchestrator:
             if not reviewers:
                 continue
 
+            # Track review count before this sprint's reviews so we only
+            # check new approvals (not stale ones from prior sprints).
+            reviews_before = len(pr.reviews)
+
             # Each reviewer gets a chance to review
             context = (
                 f"Sprint {sprint} | Code Review\n\n"
@@ -470,8 +488,20 @@ class Orchestrator:
                     comments=[review_text],
                 )
 
-            # Check if PR has enough approvals to merge (any approval suffices)
-            approvals = [r for r in pr.reviews if r.verdict == "approve"]
+                await self._emit(
+                    PRReviewEvent(
+                        sprint=sprint,
+                        phase="review",
+                        agent=reviewer_name,
+                        pr_id=pr.id,
+                        verdict=verdict,  # type: ignore[arg-type]
+                        comments=[review_text],
+                    )
+                )
+
+            # Check if this sprint's reviews include an approval
+            new_reviews = pr.reviews[reviews_before:]
+            approvals = [r for r in new_reviews if r.verdict == "approve"]
             if approvals and self._repo is not None:
                 try:
                     merge_sha = await self.pr_tracker.merge_pr(pr.id, self._repo)

@@ -84,7 +84,7 @@ class EventLog:
         if sprint is not None:
             events = [e for e in events if e.sprint == sprint]
         if agent is not None:
-            events = [e for e in events if e.agent == agent]
+            events = [e for e in events if e.agent is None or e.agent == agent]
         if phase is not None:
             events = [e for e in events if e.phase == phase]
         return events

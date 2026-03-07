@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
@@ -217,6 +218,18 @@ def _truncate(text: str, max_len: int) -> str:
     return text[: max_len - 3] + "..."
 
 
+# Safe git ref pattern: alphanumeric, /, -, ., _, ~, ^, :, @
+_SAFE_REF_RE = re.compile(r"^[a-zA-Z0-9/_\-.~^:@{}]+$")
+
+
+def _validate_git_ref(ref: str) -> None:
+    """Reject refs that could inject git flags or shell commands."""
+    if ref.startswith("-"):
+        raise SandboxViolation(f"Invalid git ref (starts with dash): {ref!r}")
+    if not _SAFE_REF_RE.match(ref):
+        raise SandboxViolation(f"Invalid git ref (unsafe characters): {ref!r}")
+
+
 # =========================================================================
 # Standard tools (tier: "standard")
 # =========================================================================
@@ -401,6 +414,10 @@ async def _git_diff(
     base_ref: str,
     head_ref: str,
 ) -> str:
+    # Validate refs to prevent flag injection (e.g. "--exec=...")
+    _validate_git_ref(base_ref)
+    _validate_git_ref(head_ref)
+
     repo = Repo(str(context.workspace))
 
     def _diff() -> str:

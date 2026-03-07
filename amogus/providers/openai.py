@@ -182,6 +182,20 @@ class OpenAIProvider(Provider):
     @staticmethod
     def _normalize_response(completion: Any) -> Response:
         """Map an OpenAI ChatCompletion object to a canonical Response."""
+        if not completion.choices:
+            return Response(
+                content=None,
+                tool_calls=[],
+                stop_reason="end_turn",
+                usage=TokenUsage(
+                    input_tokens=(
+                        getattr(completion.usage, "prompt_tokens", 0)
+                        if completion.usage
+                        else 0
+                    ),
+                    output_tokens=0,
+                ),
+            )
         choice = completion.choices[0]
         message = choice.message
 
@@ -287,3 +301,6 @@ class OpenAIProvider(Provider):
 # Self-registration — executed when the module is imported.
 # ---------------------------------------------------------------------------
 register_provider("gpt", OpenAIProvider)
+register_provider("o1", OpenAIProvider)
+register_provider("o3", OpenAIProvider)
+register_provider("o4", OpenAIProvider)
