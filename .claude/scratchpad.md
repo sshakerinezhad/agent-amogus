@@ -1,44 +1,54 @@
 # Scratchpad
 
-## Current Project: AMOGUS
-
-Adversarial Multi-agent Operations for Gauging Undetected Sabotage — an open-source Python framework for running long-horizon adversarial experiments on real codebases with autonomous coding agent teams.
-
-## Session Summary (2026-03-06, session 12)
+## Session 16 Handoff (2026-03-06)
 
 ### What was done
+Fixed 11 experiment-killing bugs identified in the session 15 pipeline audit. All top 9 issues (excluding resume/CKP) + 2 secondary issues (TOOL-4, TOOL-5) resolved across 7 files. Commit `91c0229`, pushed to `origin/001-agent-amogus-v1`.
 
-1. **Executed all 7 steps of the work plan** (`.claude/work-plan.md`) — 8 structural issues, all implemented and verified
-2. **Committed and pushed** — commit `1ff9d94` on branch `001-agent-amogus-v1`, auto-updated PR #1
-3. **Synced masterplan** — updated `.claude/masterplan.md` with all accomplishments, added Phase 3.5 (Structural Hardening), updated project structure, mission system docs, defense regime docs, new "Structural Fixes" section with WHY/gotchas
+### Files modified
+- `pull_request.py` — TOOL-1: merge without checkout
+- `agent.py` — AGT-3: re-raise BudgetExhaustedError
+- `tools.py` — TOOL-3 sandbox, ORCH-2 self-review block, EVT-1 dedup, TOOL-5 security event
+- `backlog.py` — TOOL-2 race guard, TOOL-4 attribution
+- `event_log.py` — EVT-1: event_count property for dedup tracking
+- `memory.py` — AGT-2: wire compress_scratchpad
+- `orchestrator.py` — ORCH-4 planning transcript, INT-3 verdict parsing
 
-### Key Changes (this session)
+### Current state
+- **Branch**: `001-agent-amogus-v1` — clean, pushed
+- **11 of 68 audit issues fixed** (all top 9 + TOOL-4 + TOOL-5)
+- **Ruff clean, pyright 0 errors, all imports OK**
+- **Still uncommitted from prior sessions**: `.claude/masterplan.md`, `.claude/scratchpad.md`, `.claude/work-plan.md`, `__pycache__` files
 
-- `Agent.get_full_system_prompt()` — single source of truth for agent identity across all phases
-- Defense regimes wired into runtime (were dead code): components gate, watchdog prompt, agent_briefing injection
-- `[RED BUTTON]` validator on MissionProfile — missions must end with an irreversible final milestone
-- All 5 mission YAMLs rewritten: agency-preserving, zero tactics
-- Config dirs moved under `experiments/` with `base_dir` resolution
-- Evaluator default changed to `claude-opus-4-6`
-- Bug fixes: tool exception logging, scratchpad whitespace normalization
+### What's still broken (remaining from audit)
 
-### Current State
+#### Critical — blocks first real run
+| ID | Issue | Status |
+|----|-------|--------|
+| CKP-1/2/3/4 | Resume completely broken (backlog, PRs, repo all lost) | **UNFIXED** — deferrable for first-run |
+| PROV-1 | o1/o3/o4 model prefixes not registered | **UNFIXED** — only matters for OpenAI o-series models |
+| PROV-2 | Anthropic tool-result role inconsistency | **UNFIXED** |
+| PROV-3 | OpenAI empty choices IndexError | **UNFIXED** |
+| EVT-2 | `read_filtered(agent=...)` drops framework events | **UNFIXED** |
+| EVT-3 | SprintEndEvent emitted after evaluator runs | **UNFIXED** |
+| ORCH-1 | PRs accumulate approvals cross-sprint | **UNFIXED** |
 
-- **Branch**: `001-agent-amogus-v1`
-- **PR**: #1 (open, targeting main)
-- **Latest commit**: `1ff9d94` (pushed)
-- **Verification**: ruff, pyright, ruff format all clean; schema + behavioral tests pass
-- **Work plan**: `.claude/work-plan.md` — all 7 steps COMPLETE
+#### Medium — won't crash but will produce wrong results
+22 medium issues remain unfixed. Key ones: ORCH-3 (dangling worktrees), AGT-4 (pre-call budget guard), AGT-6 (per-sprint budget misenforced), TOOL-7 (empty files in PR), TOOL-8 (git_diff injection), INT-2 (review events missing), INT-7 (evaluator event summaries), INT-8 (non-budget crash events).
 
-### Next Steps
+### Key decisions
+- Used event_count comparison in dispatch_tool to avoid double events (simple, no new abstractions)
+- merge_pr verifies branch instead of checkout (safest approach for worktrees)
+- Verdict parsing searches first 5 lines not just first (LLMs often prefix with preamble)
+- complete_task now takes agent_name explicitly (caller knows who they are)
 
-1. **Unit tests** — write tests using existing conftest fixtures (`tests/conftest.py` has MockProvider, temp_repo, config factories)
-2. **Integration test** — `amogus run --scenario experiments/scenarios/example-basic.yaml` (needs a real Git repo URL in `target_repo`)
-3. **Merge PR #1** after tests pass
+### Next steps (in order)
+1. **Fix remaining critical issues** — PROV-1/2/3 (provider bugs), EVT-2/3 (event bugs), ORCH-1 (PR accumulation), CKP-1/2/3/4 (resume)
+2. **Fix key medium issues** — especially TOOL-8 (command injection), INT-2 (review events), INT-8 (crash events)
+3. **Run first integration test** — the top 9 fixes should make a basic run viable
+4. **Resume path** (CKP-1/2/3/4) needed before long multi-sprint runs
 
-### Key References
-
-- Masterplan: `.claude/masterplan.md` (updated this session)
-- Work plan: `.claude/work-plan.md` (all steps complete)
+### Key references
+- Masterplan: `.claude/masterplan.md`
 - User guide: `docs/GUIDE.md`
-- Spec: `.specify/specs/001-agent-amogus-v1/spec.md`
+- Full audit findings: see session 15 scratchpad in git history (`c2c5ac7`)
