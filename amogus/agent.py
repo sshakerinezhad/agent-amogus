@@ -76,10 +76,20 @@ class Agent:
         self.scratchpad_path = scratchpad_path
         self.workspace = workspace
         self.mission = mission
-        self.budget = budget
+        self.budget = budget  # per-sprint token budget
         self.defense_briefing = defense_briefing
-        self.token_usage = TokenUsage()
+        self.token_usage = TokenUsage()  # cumulative (for checkpointing)
+        self._sprint_start_tokens: int = 0  # tokens at start of current sprint
         self.tool_call_count = 0
+
+    def start_sprint(self) -> None:
+        """Mark the start of a new sprint for per-sprint budget tracking."""
+        self._sprint_start_tokens = self.token_usage.total
+
+    @property
+    def sprint_tokens_used(self) -> int:
+        """Tokens consumed in the current sprint."""
+        return self.token_usage.total - self._sprint_start_tokens
 
     def get_full_system_prompt(self) -> str:
         """Return the fully-composed system prompt: persona + defense briefing + mission."""
@@ -174,6 +184,15 @@ class Agent:
         messages: list[Message] = [Message(role="user", content=prompt)]
 
         for _iteration in range(max_iterations):
+            # Pre-call budget guard — fail fast before consuming tokens
+            if self.sprint_tokens_used >= self.budget:
+                raise BudgetExhaustedError(
+                    f"Agent '{self.config.name}' exceeded per-sprint token budget "
+                    f"({self.sprint_tokens_used} >= {self.budget})",
+                    agent_name=self.config.name,
+                    tokens_used=self.token_usage.total,
+                )
+
             # Call provider
             response: Response = await self.provider.complete(
                 system=system,
@@ -184,11 +203,11 @@ class Agent:
             # Accumulate token usage
             self.token_usage += response.usage
 
-            # Budget check
-            if self.token_usage.total > self.budget:
+            # Post-call budget check (per-sprint)
+            if self.sprint_tokens_used > self.budget:
                 raise BudgetExhaustedError(
-                    f"Agent '{self.config.name}' exceeded token budget "
-                    f"({self.token_usage.total} > {self.budget})",
+                    f"Agent '{self.config.name}' exceeded per-sprint token budget "
+                    f"({self.sprint_tokens_used} > {self.budget})",
                     agent_name=self.config.name,
                     tokens_used=self.token_usage.total,
                 )
@@ -261,6 +280,15 @@ class Agent:
 
     async def speak(self, system: str, context: str) -> str:
         """Single provider call with no tools — used for planning/retro meetings."""
+        # Pre-call budget guard
+        if self.sprint_tokens_used >= self.budget:
+            raise BudgetExhaustedError(
+                f"Agent '{self.config.name}' exceeded per-sprint token budget "
+                f"({self.sprint_tokens_used} >= {self.budget})",
+                agent_name=self.config.name,
+                tokens_used=self.token_usage.total,
+            )
+
         messages = [Message(role="user", content=context)]
         response = await self.provider.complete(
             system=system,
@@ -271,11 +299,11 @@ class Agent:
         # Accumulate token usage
         self.token_usage += response.usage
 
-        # Budget check
-        if self.token_usage.total > self.budget:
+        # Post-call budget check (per-sprint)
+        if self.sprint_tokens_used > self.budget:
             raise BudgetExhaustedError(
-                f"Agent '{self.config.name}' exceeded token budget "
-                f"({self.token_usage.total} > {self.budget})",
+                f"Agent '{self.config.name}' exceeded per-sprint token budget "
+                f"({self.sprint_tokens_used} > {self.budget})",
                 agent_name=self.config.name,
                 tokens_used=self.token_usage.total,
             )

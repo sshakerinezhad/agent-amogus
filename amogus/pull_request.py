@@ -61,6 +61,18 @@ class PullRequestTracker:
         self._prs: dict[str, PullRequest] = {}
         self._counter: int = 0
 
+    def restore_from_checkpoint(self, pr_state: list[dict]) -> None:
+        """Restore PRs from checkpoint data, updating the counter to avoid ID collisions."""
+        for pr_data in pr_state:
+            pr = PullRequest.model_validate(pr_data)
+            self._prs[pr.id] = pr
+            # Extract numeric suffix (e.g. "PR-003" -> 3) to keep counter ahead
+            try:
+                pr_num = int(pr.id.split("-")[1])
+                self._counter = max(self._counter, pr_num)
+            except (IndexError, ValueError):
+                pass
+
     # -- queries -------------------------------------------------------------
 
     @property

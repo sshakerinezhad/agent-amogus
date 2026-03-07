@@ -22,7 +22,7 @@ from rich.text import Text
 
 from amogus.agent import Agent
 from amogus.backlog import BacklogManager
-from amogus.checkpoint import load_checkpoint
+from amogus.checkpoint import load_checkpoint, restore_agent_state
 from amogus.dashboard import Dashboard
 from amogus.evaluator import Evaluator
 from amogus.event_log import EventLog, build_sqlite_index
@@ -31,7 +31,6 @@ from amogus.models.config import ExperimentConfig
 from amogus.models.mission import MissionProfile
 from amogus.orchestrator import Orchestrator
 from amogus.providers import create_provider
-from amogus.providers.base import TokenUsage
 from amogus.pull_request import PullRequestTracker
 from amogus.reporter import generate_debrief
 from amogus.scenario import load_scenario
@@ -116,7 +115,7 @@ async def _run(scenario_path: Path, *, no_dashboard: bool = False) -> None:
             scratchpad_path=config.run_dir / "scratchpads" / f"{agent_config.name}.md",
             workspace=config.run_dir / "worktrees" / agent_config.name,
             mission=mission,
-            budget=config.token_budget.per_agent_per_sprint * config.num_sprints,
+            budget=config.token_budget.per_agent_per_sprint,
             defense_briefing=defense_briefing,
         )
         agents.append(agent)
@@ -233,10 +232,10 @@ async def _resume(run_id: str, *, no_dashboard: bool = False) -> None:
     console.print(f"  Sprints:   [cyan]{config.num_sprints}[/cyan]")
     console.print(f"  Resuming:  [cyan]from sprint {checkpoint.completed_sprint + 1}[/cyan]")
 
+    from git import Repo
+
     # Verify git branch SHAs match checkpoint
     if checkpoint.git_branches:
-        from git import Repo
-
         repo_dir = run_dir / "repo"
         if repo_dir.exists():
             repo = Repo(str(repo_dir))
@@ -262,9 +261,23 @@ async def _resume(run_id: str, *, no_dashboard: bool = False) -> None:
     repo_root = run_dir.parent.parent
     config_root = repo_root / config.base_dir
 
-    # Create shared infrastructure
+    # Create shared infrastructure, restoring state from checkpoint
     backlog = BacklogManager(config.backlog)
+
+    # CKP-1: Restore task statuses and sprint map from checkpoint
+    for task_data in checkpoint.backlog_state.get("tasks", []):
+        try:
+            task = backlog.find_task(task_data["id"])
+            task.status = task_data.get("status", "pending")
+            task.assigned_to = task_data.get("assigned_to")
+        except ValueError:
+            pass  # Task may have been removed from config
+    for tid, sprint_num in checkpoint.backlog_state.get("task_sprint", {}).items():
+        backlog._task_sprint[tid] = sprint_num
+
+    # CKP-2: Restore PR tracker from checkpoint
     pr_tracker = PullRequestTracker()
+    pr_tracker.restore_from_checkpoint(checkpoint.pr_state)
 
     # Build agents, restoring state from checkpoint
     agents: list[Agent] = []
@@ -292,20 +305,12 @@ async def _resume(run_id: str, *, no_dashboard: bool = False) -> None:
             scratchpad_path=run_dir / "scratchpads" / f"{agent_config.name}.md",
             workspace=run_dir / "worktrees" / agent_config.name,
             mission=mission,
-            budget=config.token_budget.per_agent_per_sprint * config.num_sprints,
+            budget=config.token_budget.per_agent_per_sprint,
             defense_briefing=defense_briefing,
         )
 
-        # Restore scratchpad content from checkpoint
-        if agent_config.name in checkpoint.scratchpads:
-            scratchpad_path = agent.scratchpad_path
-            scratchpad_path.parent.mkdir(parents=True, exist_ok=True)
-            scratchpad_path.write_text(checkpoint.scratchpads[agent_config.name], encoding="utf-8")
-
-        # Restore token usage from checkpoint
-        if agent_config.name in checkpoint.token_usage:
-            usage_data = checkpoint.token_usage[agent_config.name]
-            agent.token_usage = TokenUsage.model_validate(usage_data)
+        # CKP-4: Restore scratchpad + token usage from checkpoint
+        restore_agent_state(agent, checkpoint)
 
         agents.append(agent)
 
@@ -342,6 +347,11 @@ async def _resume(run_id: str, *, no_dashboard: bool = False) -> None:
 
     # Set the sprints_completed counter so checkpoint state is consistent
     orchestrator._sprints_completed = checkpoint.completed_sprint
+
+    # CKP-3: Open existing repo so merges work (setup_workspace is skipped on resume)
+    repo_dir = run_dir / "repo"
+    if repo_dir.exists():
+        orchestrator._repo = Repo(str(repo_dir))
 
     console.print("\n[bold green]Resuming experiment...[/bold green]\n")
     await orchestrator.run(start_sprint=checkpoint.completed_sprint + 1)

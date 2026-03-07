@@ -228,6 +228,10 @@ class Orchestrator:
 
     async def sprint(self, n: int) -> None:
         """Execute a single sprint: planning -> work -> review -> retro."""
+        # Reset per-sprint budget tracking for all agents
+        for agent in self.agents:
+            agent.start_sprint()
+
         await self._emit(
             SprintStartEvent(
                 sprint=n,
