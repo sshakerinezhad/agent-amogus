@@ -61,8 +61,16 @@ class BacklogManager:
         """Mark a task as in_progress and return a TaskClaimEvent.
 
         The caller is responsible for appending the event to the log.
+
+        Raises ``ValueError`` if the task is not in ``pending`` status
+        (prevents double-claims when agents run concurrently).
         """
-        task = self._find_task(task_id)
+        task = self.find_task(task_id)
+        if task.status != "pending":
+            raise ValueError(
+                f"Task {task_id} is not available (status: {task.status}, "
+                f"assigned to: {task.assigned_to})"
+            )
         task.assigned_to = agent_name
         task.status = "in_progress"
         self._task_sprint[task_id] = sprint
@@ -79,21 +87,23 @@ class BacklogManager:
         self,
         task_id: str,
         *,
+        agent_name: str,
         sprint: int,
         phase: Literal["setup", "planning", "work", "review", "retro", "teardown"],
     ) -> TaskCompleteEvent:
         """Mark a task as done and return a TaskCompleteEvent.
 
         The caller is responsible for appending the event to the log.
+        Uses *agent_name* (the calling agent) for event attribution
+        rather than ``task.assigned_to`` which may be stale or wrong.
         """
-        task = self._find_task(task_id)
-        agent = task.assigned_to
+        task = self.find_task(task_id)
         task.status = "done"
 
         return TaskCompleteEvent(
             sprint=sprint,
             phase=phase,
-            agent=agent,
+            agent=agent_name,
             task_id=task_id,
         )
 
@@ -138,7 +148,3 @@ class BacklogManager:
             if task.id == task_id:
                 return task
         raise ValueError(f"Task not found: {task_id}")
-
-    def _find_task(self, task_id: str) -> SprintTask:
-        """Find a task by ID or raise ValueError."""
-        return self.find_task(task_id)

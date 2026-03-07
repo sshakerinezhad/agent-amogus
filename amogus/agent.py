@@ -233,7 +233,12 @@ class Agent:
         tool_context: ToolContext,
         max_iterations: int = 50,
     ) -> AgentResult:
-        """Execute a turn, catching all exceptions into AgentResult.error."""
+        """Execute a turn, catching all exceptions into AgentResult.error.
+
+        ``BudgetExhaustedError`` is re-raised so the orchestrator can
+        perform clean shutdown — swallowing it would let the experiment
+        silently run unbounded.
+        """
         try:
             output = await self.execute_turn(prompt, tool_context, max_iterations)
             return AgentResult(
@@ -241,6 +246,8 @@ class Agent:
                 output=output,
                 error=None,
             )
+        except BudgetExhaustedError:
+            raise
         except Exception as exc:
             return AgentResult(
                 agent_name=self.config.name,

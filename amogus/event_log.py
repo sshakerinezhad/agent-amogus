@@ -30,6 +30,7 @@ class EventLog:
     def __init__(self, path: Path) -> None:
         self._path = path
         self._lock = threading.Lock()
+        self._event_count: int = 0
 
         # Ensure parent dirs and file exist (sync — called once at init).
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -40,10 +41,16 @@ class EventLog:
     # Write
     # ------------------------------------------------------------------
 
+    @property
+    def event_count(self) -> int:
+        """Total number of events appended during this session."""
+        return self._event_count
+
     async def append(self, event: BaseEvent) -> None:
         """Serialize *event* as a single JSON line and flush to disk."""
         line = event.model_dump_json() + "\n"
         await asyncio.to_thread(self._write_line, line)
+        self._event_count += 1
 
     def _write_line(self, line: str) -> None:
         """Thread-safe, synchronous file append (runs in worker thread)."""

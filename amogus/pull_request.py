@@ -123,12 +123,23 @@ class PullRequestTracker:
         The actual git merge runs in a thread via ``asyncio.to_thread`` so we
         don't block the event loop.  Returns the merge commit SHA and sets the
         PR status to ``merged``.
+
+        IMPORTANT: We never call ``git checkout`` here because the main repo
+        shares its ``.git`` directory with agent worktrees.  Checking out a
+        different branch would move the shared HEAD and corrupt worktree state.
+        Instead we verify the repo is already on the target branch.
         """
         pr = self.get_pr(pr_id)
 
         def _do_merge() -> str:
-            # Checkout target branch, merge source branch
-            repo.git.checkout(pr.target_branch)
+            # Verify we're already on the target branch — never checkout,
+            # as that would corrupt worktrees sharing this .git directory.
+            current = repo.active_branch.name if not repo.head.is_detached else None
+            if current != pr.target_branch:
+                raise RuntimeError(
+                    f"Cannot merge {pr.id}: repo HEAD is on '{current}', "
+                    f"expected '{pr.target_branch}'"
+                )
             repo.git.merge(pr.source_branch, m=f"Merge {pr.source_branch}: {pr.title}")
             return repo.head.commit.hexsha
 

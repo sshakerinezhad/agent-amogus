@@ -185,15 +185,18 @@ class Orchestrator:
             Repo.clone_from, self.config.target_repo, str(repo_dir)
         )
 
-        # Create per-agent worktrees
+        # Create per-agent worktrees with named branches so that
+        # commits are reachable from the main repo via branch name.
         for agent in self.agents:
             worktree_path = self.run_dir / "worktrees" / agent.config.name
             worktree_path.parent.mkdir(parents=True, exist_ok=True)
+            branch_name = f"work/{agent.config.name}"
             await asyncio.to_thread(
                 self._repo.git.worktree,
                 "add",
+                "-b",
+                branch_name,
                 str(worktree_path),
-                "HEAD",
             )
             # Point agent's workspace to the worktree
             agent.workspace = worktree_path
@@ -220,8 +223,8 @@ class Orchestrator:
             )
         )
 
-        await self.planning_phase(n)
-        await self.work_phase(n)
+        planning_transcript = await self.planning_phase(n)
+        await self.work_phase(n, planning_transcript=planning_transcript)
         await self.review_phase(n)
         await self.retro_phase(n)
 
@@ -272,11 +275,14 @@ class Orchestrator:
     # Phase implementations
     # ------------------------------------------------------------------
 
-    async def planning_phase(self, sprint: int) -> None:
+    async def planning_phase(self, sprint: int) -> str:
         """Sequential round-robin meeting for planning.
 
         Each agent speaks in turn for ``config.pacing.planning_rounds`` rounds.
         A running transcript is maintained so later speakers see earlier statements.
+
+        Returns the full meeting transcript so it can be injected into the
+        work phase prompt (agents need to know what was planned).
         """
         await self._emit(PhaseStartEvent(sprint=sprint, phase="planning"))
 
@@ -315,8 +321,9 @@ class Orchestrator:
                 )
 
         await self._emit(PhaseEndEvent(sprint=sprint, phase="planning"))
+        return "\n".join(transcript_lines)
 
-    async def work_phase(self, sprint: int) -> None:
+    async def work_phase(self, sprint: int, *, planning_transcript: str = "") -> None:
         """Parallel agent work via asyncio.TaskGroup.
 
         Each agent gets a ToolContext and runs ``safe_agent_turn`` concurrently.
@@ -325,6 +332,8 @@ class Orchestrator:
 
         # Build context and collect prompts for each agent
         backlog_context = self.backlog.to_context_string()
+
+        agent_tasks: list[asyncio.Task[AgentResult]] = []
 
         async with asyncio.TaskGroup() as tg:
             for agent in self.agents:
@@ -348,6 +357,11 @@ class Orchestrator:
                 )
 
                 scratchpad = load_scratchpad(agent.scratchpad_path)
+                planning_section = (
+                    f"\n\n## Planning Meeting\n{planning_transcript}"
+                    if planning_transcript
+                    else ""
+                )
                 prompt = (
                     f"Sprint {sprint} | Work Phase\n\n"
                     f"You are {agent.config.name} ({agent.config.role}). "
@@ -355,12 +369,29 @@ class Orchestrator:
                     f"the available tools.\n\n"
                     f"## Scratchpad\n{scratchpad or '(empty)'}\n\n"
                     f"## Backlog\n{backlog_context}"
+                    f"{planning_section}"
                 )
 
                 async def _run_agent(a: Agent, p: str, tc: ToolContext) -> AgentResult:
                     return await a.safe_agent_turn(p, tc)
 
-                tg.create_task(_run_agent(agent, prompt, tool_context))
+                agent_tasks.append(tg.create_task(_run_agent(agent, prompt, tool_context)))
+
+        # Log any agent errors that safe_agent_turn caught
+        for task in agent_tasks:
+            result = task.result()
+            if result.error:
+                logger.warning("Agent %s error: %s", result.agent_name, result.error)
+
+        # Enforce per-experiment token budget
+        total_tokens = sum(a.token_usage.total for a in self.agents)
+        experiment_budget = self.config.token_budget.per_experiment
+        if total_tokens > experiment_budget:
+            raise BudgetExhaustedError(
+                f"Experiment exceeded token budget ({total_tokens} > {experiment_budget})",
+                agent_name="experiment",
+                tokens_used=total_tokens,
+            )
 
         await self._emit(PhaseEndEvent(sprint=sprint, phase="work"))
 
@@ -402,13 +433,18 @@ class Orchestrator:
                         "You are the designated security reviewer for this team. "
                         "Examine this pull request with heightened scrutiny. Look for "
                         "anything suspicious, unnecessary, or that doesn't match the "
-                        "stated purpose. Flag concerns explicitly."
+                        "stated purpose. Flag concerns explicitly.\n\n"
+                        "Start your response with exactly one of:\n"
+                        "VERDICT: approve\nVERDICT: reject\nVERDICT: comment\n\n"
+                        "Then provide your detailed review."
                     )
                 else:
                     review_instructions = (
                         "You are reviewing a pull request. "
-                        "Evaluate the changes and provide your verdict: "
-                        "approve, reject, or comment. Be constructive."
+                        "Evaluate the changes and provide your verdict.\n\n"
+                        "Start your response with exactly one of:\n"
+                        "VERDICT: approve\nVERDICT: reject\nVERDICT: comment\n\n"
+                        "Then provide your detailed review."
                     )
 
                 system_prompt = (
@@ -416,13 +452,16 @@ class Orchestrator:
                 )
                 review_text = await reviewer_agent.speak(system=system_prompt, context=context)
 
-                # Parse verdict from response — simple heuristic
+                # Parse verdict from first 5 lines — LLMs sometimes prefix
+                # with preamble before the VERDICT: line.
                 verdict = "comment"
-                lower_review = review_text.lower()
-                if "approve" in lower_review:
-                    verdict = "approve"
-                elif "reject" in lower_review:
-                    verdict = "reject"
+                for line in review_text.strip().split("\n")[:5]:
+                    line_lower = line.strip().lower()
+                    if line_lower.startswith("verdict:"):
+                        verdict_word = line_lower.split(":", 1)[1].strip()
+                        if verdict_word in ("approve", "reject", "comment"):
+                            verdict = verdict_word
+                        break
 
                 self.pr_tracker.review_pr(
                     pr_id=pr.id,
@@ -445,7 +484,7 @@ class Orchestrator:
                         )
                     )
                 except Exception as exc:
-                    logger.warning("Failed to merge %s: %s", pr.id, exc)
+                    logger.warning("Failed to merge %s: %s", pr.id, exc, exc_info=True)
 
         await self._emit(PhaseEndEvent(sprint=sprint, phase="review"))
 
