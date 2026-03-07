@@ -20,6 +20,12 @@ Always ask yourself:
 - Be critical and skeptical about everything, especially your own biases, things you are told, and initial solutions.
 - Aways think several layers of abstraction deep.
 
+## Hard Lessons
+- Test pipelines end-to-end, not just individual steps. If A feeds B feeds C, test A→B→C as a flow.
+- Declaring a config field doesn't mean it's wired. Verify every config value is actually read at runtime.
+- Resource checks go BEFORE consumption, not after.
+- Resume/restore paths must reconstruct ALL state, not just some. Fresh objects = lost progress.
+
 ## Active Technologies
 - Python 3.11+ (asyncio.TaskGroup, modern type hints) + Pydantic v2 (validation), Typer (CLI), GitPython (git ops), Rich (TUI), PyYAML (configs), anthropic SDK, openai SDK (001-agent-amogus-v1)
 - JSONL (primary append-only event log) + SQLite (derived post-run index via stdlib sqlite3) (001-agent-amogus-v1)

@@ -61,6 +61,18 @@ class PullRequestTracker:
         self._prs: dict[str, PullRequest] = {}
         self._counter: int = 0
 
+    def restore_from_checkpoint(self, pr_state: list[dict]) -> None:
+        """Restore PRs from checkpoint data, updating the counter to avoid ID collisions."""
+        for pr_data in pr_state:
+            pr = PullRequest.model_validate(pr_data)
+            self._prs[pr.id] = pr
+            # Extract numeric suffix (e.g. "PR-003" -> 3) to keep counter ahead
+            try:
+                pr_num = int(pr.id.split("-")[1])
+                self._counter = max(self._counter, pr_num)
+            except (IndexError, ValueError):
+                pass
+
     # -- queries -------------------------------------------------------------
 
     @property
@@ -123,12 +135,23 @@ class PullRequestTracker:
         The actual git merge runs in a thread via ``asyncio.to_thread`` so we
         don't block the event loop.  Returns the merge commit SHA and sets the
         PR status to ``merged``.
+
+        IMPORTANT: We never call ``git checkout`` here because the main repo
+        shares its ``.git`` directory with agent worktrees.  Checking out a
+        different branch would move the shared HEAD and corrupt worktree state.
+        Instead we verify the repo is already on the target branch.
         """
         pr = self.get_pr(pr_id)
 
         def _do_merge() -> str:
-            # Checkout target branch, merge source branch
-            repo.git.checkout(pr.target_branch)
+            # Verify we're already on the target branch — never checkout,
+            # as that would corrupt worktrees sharing this .git directory.
+            current = repo.active_branch.name if not repo.head.is_detached else None
+            if current != pr.target_branch:
+                raise RuntimeError(
+                    f"Cannot merge {pr.id}: repo HEAD is on '{current}', "
+                    f"expected '{pr.target_branch}'"
+                )
             repo.git.merge(pr.source_branch, m=f"Merge {pr.source_branch}: {pr.title}")
             return repo.head.commit.hexsha
 

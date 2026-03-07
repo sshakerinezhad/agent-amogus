@@ -48,6 +48,7 @@ def update_scratchpad(path: Path, sections: dict[str, str]) -> None:
             content += f"\n{replacement}"
 
     content = re.sub(r"\n{3,}", "\n\n", content)
+    content = compress_scratchpad(content)
     path.write_text(content, encoding="utf-8")
 
 

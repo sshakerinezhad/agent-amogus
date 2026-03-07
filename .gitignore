@@ -1,3 +1,7 @@
+# Python
+__pycache__/
+*.pyc
+
 # Speckit internal state
 .specify/.current-feature
 **/.progress.md

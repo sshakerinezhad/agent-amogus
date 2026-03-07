@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
@@ -23,6 +24,7 @@ from git import Repo
 
 from amogus.backlog import BacklogManager
 from amogus.event_log import EventLog
+from amogus.exceptions import SandboxViolation
 from amogus.memory import load_scratchpad, update_scratchpad
 from amogus.models.events import (
     CommitEvent,
@@ -152,28 +154,43 @@ async def dispatch_tool(
 
     # 3. Execute handler with timing — inject event_log into context
     context.event_log = event_log
+    count_before = event_log.event_count
     start = time.monotonic()
     try:
         result = await info.handler(agent_name, context, **arguments)
+    except SandboxViolation as exc:
+        logger.warning("Sandbox violation by '%s' in tool '%s': %s", agent_name, tool_name, exc)
+        await event_log.append(
+            TierViolationEvent(
+                sprint=context.sprint,
+                phase=context.phase,
+                agent=agent_name,
+                tool_name=tool_name,
+                tier_required="sandbox",
+            )
+        )
+        result = f"Error: {exc}"
     except Exception as exc:
         logger.exception("Tool '%s' raised an exception", tool_name)
         result = f"Error: {exc}"
     duration_ms = int((time.monotonic() - start) * 1000)
 
-    # 4. Log ToolCallEvent
-    args_summary = _truncate(str(arguments), 200)
-    result_summary = _truncate(result, 200)
-    await event_log.append(
-        ToolCallEvent(
-            sprint=context.sprint,
-            phase=context.phase,
-            agent=agent_name,
-            tool_name=tool_name,
-            args_summary=args_summary,
-            result_summary=result_summary,
-            duration_ms=duration_ms,
+    # 4. Log ToolCallEvent only if the handler didn't emit its own domain
+    #    event — avoids double-counting that distorts evaluator scoring.
+    if event_log.event_count == count_before:
+        args_summary = _truncate(str(arguments), 200)
+        result_summary = _truncate(result, 200)
+        await event_log.append(
+            ToolCallEvent(
+                sprint=context.sprint,
+                phase=context.phase,
+                agent=agent_name,
+                tool_name=tool_name,
+                args_summary=args_summary,
+                result_summary=result_summary,
+                duration_ms=duration_ms,
+            )
         )
-    )
 
     return result
 
@@ -199,6 +216,18 @@ def _truncate(text: str, max_len: int) -> str:
     if len(text) <= max_len:
         return text
     return text[: max_len - 3] + "..."
+
+
+# Safe git ref pattern: alphanumeric, /, -, ., _, ~, ^, :, @
+_SAFE_REF_RE = re.compile(r"^[a-zA-Z0-9/_\-.~^:@{}]+$")
+
+
+def _validate_git_ref(ref: str) -> None:
+    """Reject refs that could inject git flags or shell commands."""
+    if ref.startswith("-"):
+        raise SandboxViolation(f"Invalid git ref (starts with dash): {ref!r}")
+    if not _SAFE_REF_RE.match(ref):
+        raise SandboxViolation(f"Invalid git ref (unsafe characters): {ref!r}")
 
 
 # =========================================================================
@@ -337,6 +366,10 @@ async def _git_commit(
     files: list[str],
     message: str,
 ) -> str:
+    # Validate every file path against the sandbox before staging.
+    for f in files:
+        validate_path(agent_name, f, context.workspace)
+
     repo = Repo(str(context.workspace))
 
     def _commit() -> str:
@@ -381,6 +414,10 @@ async def _git_diff(
     base_ref: str,
     head_ref: str,
 ) -> str:
+    # Validate refs to prevent flag injection (e.g. "--exec=...")
+    _validate_git_ref(base_ref)
+    _validate_git_ref(head_ref)
+
     repo = Repo(str(context.workspace))
 
     def _diff() -> str:
@@ -421,17 +458,25 @@ async def _git_log(agent_name: str, context: ToolContext, *, count: int = 10) ->
 @tool(
     name="open_pr",
     tier="standard",
-    description="Open a new pull request.",
+    description="Open a new pull request. Branch is auto-detected from your workspace if omitted.",
     parameters={
         "type": "object",
         "properties": {
             "title": {"type": "string", "description": "PR title"},
-            "branch": {"type": "string", "description": "Source branch name"},
+            "branch": {
+                "type": "string",
+                "description": "Source branch name (auto-detected from workspace if omitted)",
+            },
         },
-        "required": ["title", "branch"],
+        "required": ["title"],
     },
 )
-async def _open_pr(agent_name: str, context: ToolContext, *, title: str, branch: str) -> str:
+async def _open_pr(
+    agent_name: str, context: ToolContext, *, title: str, branch: str | None = None
+) -> str:
+    if branch is None:
+        repo = Repo(str(context.workspace))
+        branch = repo.active_branch.name if not repo.head.is_detached else "HEAD"
     pr = context.pr_tracker.open_pr(
         author=agent_name,
         title=title,
@@ -483,6 +528,11 @@ async def _review_pr(
     verdict: str,
     comments: list[str],
 ) -> str:
+    # Block self-review — an agent cannot approve their own PR.
+    pr = context.pr_tracker.get_pr(pr_id)
+    if pr.author == agent_name:
+        return f"Error: cannot review your own pull request ({pr_id})"
+
     context.pr_tracker.review_pr(
         pr_id=pr_id,
         reviewer=agent_name,
@@ -612,6 +662,7 @@ async def _claim_task(agent_name: str, context: ToolContext, *, task_id: str) ->
 async def _complete_task(agent_name: str, context: ToolContext, *, task_id: str) -> str:
     event = context.backlog.complete_task(
         task_id=task_id,
+        agent_name=agent_name,
         sprint=context.sprint,
         phase=context.phase,  # type: ignore[arg-type]
     )
